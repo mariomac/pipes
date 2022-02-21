@@ -1,35 +1,34 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/mariomac/go-pipes/pkg/pipe"
-	"gopkg.in/yaml.v2"
 )
 
-const pipelineConfig = `
-invocations:
-  - name: ingest
-  - fork:
-      right:
-        - name: print 
-      left:
-        - name: json2record
-        - name: appender
-          args:
-            - "direction"
-            - "left"
-        - name: record2line
-        - name: print
-`
-
 func main() {
-	definition := pipe.PipelineDefinition{}
-	exitOnErr(yaml.Unmarshal([]byte(pipelineConfig), &definition))
-	exitOnErr(pipe.Run(definition))
-	<-context.TODO().Done()
+	count := 1
+	p := pipe.Start(func(out chan<- int) {
+		for count <= 10 {
+			out <- count
+			count++
+		}
+	})
+	p.Add(func(in <-chan int, out chan<- string) {
+		for n := range in {
+			out <- fmt.Sprint("Received", n)
+		}
+	})
+	p.End(func(in <-chan string) {
+		for n := range in {
+			fmt.Println(n)
+		}
+	})
+	p.Run()
+
+	time.Sleep(10 * time.Second)
 }
 
 func exitOnErr(err error) {
