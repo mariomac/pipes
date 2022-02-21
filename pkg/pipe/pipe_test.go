@@ -39,7 +39,7 @@ func bolder(in <-chan string, out chan<- string) {
 
 // collectCloser is an end function that accumulates the received elements in a slice passed as
 // argument. It also invokes the close function when all the messages have been processed
-func collectCloser(slice *[]string, close func()) EndFunction {
+func collectCloser(slice *[]string, close func()) StageFunction {
 	return func(in <-chan string) {
 		for n := range in {
 			*slice = append(*slice, n)
@@ -110,4 +110,9 @@ func TestBadPipelineFormation(t *testing.T) {
 		p := Start(counter(3))
 		p.Add(bolder)
 	}, "must panic if the input of a stage does not match the type of the previous stage")
+	assert.Panics(t, func() {
+		p := Start(counter(3))
+		p.Add(func(in <-chan int) {})
+		p.Add(func(in <-chan int) {})
+	}, "must panic if trying to add a pipeline stage after a terminal (input-only) stage")
 }

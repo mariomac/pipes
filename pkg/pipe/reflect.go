@@ -81,8 +81,8 @@ func runStartGoroutine(fn reflect.Value) reflect.Value {
 	fnType := fn.Type()
 	outCh := makeChannel(fnType.In(0).Elem(), channelsBuf)
 	go func() {
+		defer outCh.Close()
 		fn.Call([]reflect.Value{outCh})
-		outCh.Close()
 	}()
 	return outCh
 }
@@ -95,8 +95,8 @@ func runStageGoroutine(fn, inCh reflect.Value) reflect.Value {
 	fnType := fn.Type()
 	outCh := makeChannel(fnType.In(1).Elem(), channelsBuf)
 	go func() {
+		defer outCh.Close()
 		fn.Call([]reflect.Value{inCh, outCh})
-		outCh.Close()
 	}()
 	return outCh
 }
