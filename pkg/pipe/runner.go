@@ -7,6 +7,8 @@ import (
 // todo: set as a builderRunner configurable property
 const channelsBuf = 20
 
+// the connector is the output channel of the previous stage (nil for the first stage),
+// that is used as input for the next stage.
 func (b *builderRunner) run(connector *refl.Channel) {
 	for _, invocation := range b.line {
 		//if invocation.Fork != nil {
@@ -17,6 +19,9 @@ func (b *builderRunner) run(connector *refl.Channel) {
 	}
 }
 
+// the connector is passed as argument to the function to be run. If the function returns a
+// channel (first or middle stages), the connector is updated to it, so it will be passed to the
+// next stage
 func invoke(fn refl.Function, connector *refl.Channel) {
 	if connector.IsNil() {
 		// output-only function (first element of pipeline)
