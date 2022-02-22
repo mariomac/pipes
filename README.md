@@ -79,3 +79,5 @@ Observe that the output channel of a stage must coincide with its successor stag
 |   println  |
 +------------+
 ```
+
+More examples in the [examples/](./examples) folder.

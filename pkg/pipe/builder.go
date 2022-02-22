@@ -27,19 +27,19 @@ type StartFunction interface{}
 // it's closed, and optionally forward the processed results to the output channel.
 type StageFunction interface{}
 
-// Builder can build pipelines and eventually run Them
-type Builder interface {
-	PartialBuilder
+// BuilderRunner can build pipelines and eventually run Them
+type BuilderRunner interface {
+	Builder
 	// Run starts running in background all the pipeline stages
 	Run()
 }
 
-// PartialBuilder allows building pipelines but not running them. Used for fork's sub-pipelines
-type PartialBuilder interface {
+// Builder allows building pipelines but not running them. Used for fork's sub-pipelines
+type Builder interface {
 	// Add a stage to the pipeline
 	Add(function StageFunction)
 	// Fork the pipeline into two sub-pipelines that will receive the input from the previous
-	Fork() (left, right PartialBuilder)
+	Fork() (left, right Builder)
 }
 
 type builderRunner struct {
@@ -54,14 +54,14 @@ type stage struct {
 }
 
 type fork struct {
-	left  builderRunner
-	right builderRunner
+	left  *builderRunner
+	right *builderRunner
 }
 
 // Start defining a pipeline whose first stage is a StartFunction passed as first argument. When
 // the StartFunction finishes, its output channel will be automatically closed, causing the subsequent
 // pipeline stages to end in cascade.
-func Start(function StartFunction) Builder {
+func Start(function StartFunction) BuilderRunner {
 	fn := refl.WrapFunction(function)
 	fn.AssertNumberOfArguments(1)
 	fn.AssertArgumentIsDirectedChannel(0, reflect.SendDir)
@@ -77,7 +77,7 @@ func Start(function StartFunction) Builder {
 // pipeline stages to end in cascade.
 func (b *builderRunner) Add(function StageFunction) {
 	if b.ended {
-		panic("this builderRunner has been ended by the End or Fork method. Can't add more stages")
+		panic("this builderRunner has been ended by a final stage or Fork method. Can't add more stages")
 	}
 	fn := refl.WrapFunction(function)
 	// check if the function is an ending stage (1 single output channel) or a middle stage
@@ -99,16 +99,26 @@ func (b *builderRunner) Add(function StageFunction) {
 	b.lastAddedFunction = fn
 }
 
-// Fork TODO
-func (b *builderRunner) Fork() (left, right PartialBuilder) {
-	//TODO implement me
-	panic("implement me")
+// Fork splits the current pipeline in two sub-pipelines that will receive the output of the
+// previous pipeline stage in the parent pipeline. Both pipelines will receive the same input
+// from its previous stage.
+// It returns Builder instances for bot sub-pipelines. Running the parent pipeline will also run
+// the two sub-pipelines.
+func (b *builderRunner) Fork() (left, right Builder) {
+	if b.ended {
+		panic("this builderRunner has been ended by the End or Fork method. Can't add more stages")
+	}
+	b.ended = true
+	leftBR := &builderRunner{lastAddedFunction: b.lastAddedFunction}
+	rightBR := &builderRunner{lastAddedFunction: b.lastAddedFunction}
+	b.line = append(b.line, stage{fork: &fork{left: leftBR, right: rightBR}})
+	return leftBR, rightBR
 }
 
 // Run all the pipeline stages in background. Each pipeline stage will run in its own goroutine.
 func (b *builderRunner) Run() {
 	checkPipelineIsEnded(b)
-	b.run(refl.Nil())
+	b.run(refl.NilChannel())
 }
 
 func checkPipelineIsEnded(b *builderRunner) {
@@ -117,7 +127,7 @@ func checkPipelineIsEnded(b *builderRunner) {
 	}
 	lastItem := b.line[len(b.line)-1]
 	if lastItem.fork != nil {
-		checkPipelineIsEnded(&lastItem.fork.left)
-		checkPipelineIsEnded(&lastItem.fork.right)
+		checkPipelineIsEnded(lastItem.fork.left)
+		checkPipelineIsEnded(lastItem.fork.right)
 	}
 }
