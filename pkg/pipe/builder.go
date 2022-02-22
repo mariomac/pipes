@@ -2,13 +2,18 @@ package pipe
 
 import (
 	"reflect"
+
+	"github.com/mariomac/go-pipes/pkg/pipe/internal/refl"
 )
 
 // TODO: when we are ready to integrate Go 1.18, enforce functions' type safety redefining the
 // following types as:
+//
 // type StartFunction[OUT any] func(out chan<- OUT)
 // type StageFunction[IN, OUT any] func(in <-chan IN, out chan<- OUT)
 // type EndFunction[IN any] func(out <-chan IN)
+//
+// That would save us a lot of reflection checks at runtime
 
 // StartFunction is a function that receives a writable channel as unique argument, and sends
 // value to that channel during an indefinite amount of time
@@ -38,15 +43,14 @@ type PartialBuilder interface {
 }
 
 type builderRunner struct {
-	// not null for the cases of fork/join, when this line is feed by another previous line
-	previousLine *builderRunner
-	ended        bool
-	line         []stage
+	ended             bool
+	line              []stage
+	lastAddedFunction refl.Function
 }
 
 type stage struct {
 	fork     *fork
-	function reflect.Value
+	function refl.Function
 }
 
 type fork struct {
@@ -58,10 +62,13 @@ type fork struct {
 // the StartFunction finishes, its output channel will be automatically closed, causing the subsequent
 // pipeline stages to end in cascade.
 func Start(function StartFunction) Builder {
-	funcVal := reflect.ValueOf(function)
-	checkIsFunction(funcVal)
-	checkArgumentIsWritableChannel(funcVal)
-	return &builderRunner{line: []stage{{function: funcVal}}}
+	fn := refl.WrapFunction(function)
+	fn.AssertNumberOfArguments(1)
+	fn.AssertArgumentIsDirectedChannel(0, reflect.SendDir)
+	return &builderRunner{
+		line:              []stage{{function: fn}},
+		lastAddedFunction: fn,
+	}
 }
 
 // Add a new StageFunction to the pipeline stage. The passed function should handle the case where
@@ -72,17 +79,24 @@ func (b *builderRunner) Add(function StageFunction) {
 	if b.ended {
 		panic("this builderRunner has been ended by the End or Fork method. Can't add more stages")
 	}
-	funcVal := reflect.ValueOf(function)
-	checkIsFunction(funcVal)
-	if isEndingFunction(funcVal) {
+	fn := refl.WrapFunction(function)
+	// check if the function is an ending stage (1 single output channel) or a middle stage
+	if fn.NumArgs() == 1 {
+		// ending stage: check that it only has a single read channel
+		fn.AssertArgumentIsDirectedChannel(0, reflect.RecvDir)
 		b.ended = true
 	} else {
-		checkArgumentAreReadableWritableChannels(funcVal)
+		// middle stage. check that it has a read channel and a write channel
+		fn.AssertNumberOfArguments(2)
+		fn.AssertArgumentIsDirectedChannel(0, reflect.RecvDir)
+		fn.AssertArgumentIsDirectedChannel(1, reflect.SendDir)
 	}
-	checkInputIsCompatibleWithPreviousStage(
-		b.findLastStageFunction(),
-		funcVal)
-	b.line = append(b.line, stage{function: funcVal})
+	// Check that the last argument of the previous stage (output channel) is assignable to the
+	// first argument of the current stage (input channel)
+	previous := b.lastAddedFunction
+	fn.AssertArgsConnectableChannels(0, previous, previous.NumArgs()-1)
+	b.line = append(b.line, stage{function: fn})
+	b.lastAddedFunction = fn
 }
 
 // Fork TODO
@@ -94,7 +108,7 @@ func (b *builderRunner) Fork() (left, right PartialBuilder) {
 // Run all the pipeline stages in background. Each pipeline stage will run in its own goroutine.
 func (b *builderRunner) Run() {
 	checkPipelineIsEnded(b)
-	b.run(nilValue())
+	b.run(refl.Nil())
 }
 
 func checkPipelineIsEnded(b *builderRunner) {
@@ -105,21 +119,5 @@ func checkPipelineIsEnded(b *builderRunner) {
 	if lastItem.fork != nil {
 		checkPipelineIsEnded(&lastItem.fork.left)
 		checkPipelineIsEnded(&lastItem.fork.right)
-	}
-}
-
-func (b *builderRunner) findLastStageFunction() reflect.Value {
-	currentBuilder := b
-	// we know this bucle ends as we force the pipeline
-	// to contain at least one functional stage (method Start)
-	for {
-		stages := currentBuilder.line
-		for len(stages) > 0 {
-			if stages[len(stages)-1].fork == nil {
-				return stages[len(stages)-1].function
-			}
-		}
-		// look for the previous line
-		currentBuilder = currentBuilder.previousLine
 	}
 }

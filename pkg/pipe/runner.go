@@ -1,34 +1,32 @@
 package pipe
 
 import (
-	"log"
-	"reflect"
+	"github.com/mariomac/go-pipes/pkg/pipe/internal/refl"
 )
 
 // todo: set as a builderRunner configurable property
 const channelsBuf = 20
 
-func (b *builderRunner) run(connector *reflect.Value) {
-	for i, invocation := range b.line {
+func (b *builderRunner) run(connector *refl.Channel) {
+	for _, invocation := range b.line {
 		//if invocation.Fork != nil {
 		//	log.Printf("%d: forking", i)
 		//	return forkFn(invocation, nextInput)
 		//}
-		log.Printf("%d: invoking %+v", i, invocation)
 		invoke(invocation.function, connector)
 	}
 }
 
-func invoke(fn reflect.Value, connector *reflect.Value) {
+func invoke(fn refl.Function, connector *refl.Channel) {
 	if connector.IsNil() {
 		// output-only function (first element of pipeline)
-		*connector = runStartGoroutine(fn)
-	} else if fn.Type().NumIn() == 1 {
+		*connector = fn.RunAsStartGoroutine(channelsBuf)
+	} else if fn.NumArgs() == 1 {
 		// input-only function (last element of pipeline)
-		runEndGoroutine(fn, *connector)
+		fn.RunAsEndGoroutine(*connector)
 	} else {
 		// intermediate stage of the pipeline with input and output channel
-		*connector = runStageGoroutine(fn, *connector)
+		*connector = fn.RunAsMiddleGoroutine(*connector, channelsBuf)
 	}
 }
 

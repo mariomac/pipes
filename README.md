@@ -1,12 +1,13 @@
-package main
+# Dynamic asynchronous pipelines
 
-import (
-	"fmt"
-	"strconv"
+API doc: https://pkg.go.dev/github.com/mariomac/go-pipes
 
-	"github.com/mariomac/go-pipes/pkg/pipe"
-)
+Go-pipes is a library that allows to dynamically connect multiple pipeline
+stages that are communicated via channels. Each stage will run in a goroutine.
 
+Example pipeline:
+
+```go
 // start of the pipeline. Sends some values to a given output channel
 func tenCounter(out chan<- int) {
 	for i := 0; i < 10; i++ {
@@ -51,3 +52,30 @@ func main() {
 
 	<-endCh
 }
+```
+
+Observe that the output channel of a stage must coincide with its successor stage:
+
+```
++------------+
+| tenCounter |
++------------+
+      | 
+      | chan int
+      √
++------------+
+| oddFilter  |
++------------+
+      | 
+      | chan int
+      √
++------------+
+|  stringer  |
++------------+
+      | 
+      | chan string
+      √
++------------+
+|   println  |
++------------+
+```
