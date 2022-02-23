@@ -25,10 +25,6 @@ func (ch *ChannelType) CanReceive() bool {
 	return ch.inner.ChanDir()&reflect.RecvDir != 0
 }
 
-func (ch *ChannelType) String() string {
-	return ch.inner.String()
-}
-
 func (ch *ChannelType) Instantiate(bufLen int) Channel {
 	return Channel{makeChannel(ch.inner.Elem(), bufLen)}
 }

@@ -37,5 +37,20 @@ func main() {
 	start2.Start()
 
 	time.Sleep(2 * time.Second)
-}```
+}
+```
 
+Output:
+
+```
+even number: 2
+odd number: 847
+odd number: 59
+odd number: 81
+odd number: 81
+even number: 0
+odd number: 3
+odd number: 1
+odd number: 887
+even number: 4
+```

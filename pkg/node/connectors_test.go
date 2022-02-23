@@ -30,20 +30,11 @@ func TestJoiner(t *testing.T) {
 		finished.Done()
 	})
 	j := NewJoiner(receiver.ArgChannelType(0), 20)
-	// running this concurrently will introduce flakyness in case of race condition
+	// running this concurrently will help detecting race conditions
 	go receiver.RunAsEndGoroutine(j.Receiver())
-	go func() {
-		ch, release := j.AcquireSender()
-		sender1.RunAsStartGoroutine(ch, release)
-	}()
-	go func() {
-		ch, release := j.AcquireSender()
-		sender2.RunAsStartGoroutine(ch, release)
-	}()
-	go func() {
-		ch, release := j.AcquireSender()
-		sender3.RunAsStartGoroutine(ch, release)
-	}()
+	go sender1.RunAsStartGoroutine(j.AcquireSender(), j.ReleaseSender)
+	go sender2.RunAsStartGoroutine(j.AcquireSender(), j.ReleaseSender)
+	go sender3.RunAsStartGoroutine(j.AcquireSender(), j.ReleaseSender)
 	finished.Wait(t, timeout)
 	assert.Equal(t, map[int]struct{}{1: {}, 2: {}, 3: {}}, set)
 
@@ -83,8 +74,8 @@ func TestForker(t *testing.T) {
 	joiner1 := NewJoiner(sender.ArgChannelType(0), 20)
 	joiner2 := NewJoiner(sender.ArgChannelType(0), 20)
 	joiner3 := NewJoiner(sender.ArgChannelType(0), 20)
-	f := Fork(joiner1, joiner2, joiner3)
-	// running this concurrently will introduce flakyness in case of race condition
+	f := Fork(&joiner1, &joiner2, &joiner3)
+	// running this concurrently will help detecting race conditions
 	go sender.RunAsStartGoroutine(f.Sender(), f.Close)
 	go receiver1.RunAsEndGoroutine(joiner1.Receiver())
 	go receiver2.RunAsEndGoroutine(joiner2.Receiver())

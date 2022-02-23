@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/mariomac/go-pipes/pkg/node"
 	"math/rand"
 	"time"
+
+	"github.com/mariomac/go-pipes/pkg/node"
 )
 
 func StartCounter(out chan<- int) {
@@ -21,7 +22,7 @@ func StartRandoms(out chan<- int) {
 
 func OddFilter(in <-chan int, out chan<- int) {
 	for n := range in {
-		if n%2 == 0 {
+		if n%2 == 1 {
 			out <- n
 		}
 	}
@@ -29,7 +30,7 @@ func OddFilter(in <-chan int, out chan<- int) {
 
 func EvenFilter(in <-chan int, out chan<- int) {
 	for n := range in {
-		if n%2 == 1 {
+		if n%2 == 0 {
 			out <- n
 		}
 	}
@@ -59,13 +60,13 @@ func main() {
 	printer := node.AsTerminal(Printer)
 
 	/*
-			       start1----\ /---start2
-			          |       X      |
-			        evens<---/ \-->odds
-			          |              |
-			        evensMsg      oddsMsg
-		                   \ 	  /
-			               printer
+		start1----\ /---start2
+		  |       X      |
+		evens<---/ \-->odds
+		  |              |
+		evensMsg      oddsMsg
+		       \      /
+		        printer
 	*/
 	start1.SendsTo(evens, odds)
 	start2.SendsTo(evens, odds)
@@ -74,6 +75,7 @@ func main() {
 	oddsMsg.SendsTo(printer)
 	evensMsg.SendsTo(printer)
 
+	// All the init nodes must be started
 	start1.Start()
 	start2.Start()
 
