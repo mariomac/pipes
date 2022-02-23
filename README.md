@@ -23,7 +23,7 @@ func main() {
 			        evens<---/ \-->odds
 			          |              |
 			        evensMsg      oddsMsg
-		                   \ 	  /
+			              \       /
 			               printer
 	*/
 	start1.SendsTo(evens, odds)
