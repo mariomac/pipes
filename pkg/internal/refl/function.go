@@ -78,11 +78,11 @@ func (fn *Function) RunAsEndGoroutine(inCh Channel) {
 // It accepts a Channel to be used as input for data and creates creates and
 // returns a Channel with the provided buffer length. When the executed function is finished,
 // the returned channel is closed.
-func (fn *Function) RunAsMiddleGoroutine(input, output Channel) {
+func (fn *Function) RunAsMiddleGoroutine(input, output Channel, releaseFunc func()) {
 	inCh := input.Value
 	outCh := output.Value
 	go func() {
-		defer outCh.Close()
+		defer releaseFunc()
 		valueOf(fn).Call([]reflect.Value{inCh, outCh})
 	}()
 }

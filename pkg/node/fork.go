@@ -1,6 +1,7 @@
 package node
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/mariomac/go-pipes/pkg/internal/refl"
@@ -45,9 +46,10 @@ func (j *Joiner) AcquireSender() (refl.Channel, Releaser) {
 		for in, ok := ch.Recv(); ok; in, ok = ch.Recv() {
 			j.main.Send(in)
 		}
+		ch.Close()
 		j.release()
 	}()
-	return ch, func() { ch.Close() }
+	return ch, func() {}
 }
 
 func (j *Joiner) release() {
@@ -56,6 +58,7 @@ func (j *Joiner) release() {
 	j.totalSenders--
 	// if no senders, we close the main channel
 	if j.totalSenders == 0 {
+		fmt.Printf("closing channel %p %+v", j, *j)
 		j.main.Close()
 		j.channels = nil
 	}
@@ -66,7 +69,7 @@ type Forker struct {
 	releaseChannel Releaser
 }
 
-func Fork(joiners ...Joiner) Forker {
+func Fork(joiners ...*Joiner) Forker {
 	if len(joiners) == 0 {
 		panic("can't fork 0 joiners")
 	}

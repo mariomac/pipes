@@ -2,7 +2,6 @@ package node
 
 import (
 	"github.com/mariomac/go-pipes/pkg/internal/refl"
-	"sync/atomic"
 )
 
 // todo: make it configurable
@@ -32,13 +31,11 @@ type TerminalFunc interface{}
 
 type Sender interface {
 	SendsTo(...Receiver)
-	SendsToFn(fun InnerFunc) *Inner
-	SendsToTermFn(fun TerminalFunc) *Terminal
 }
 
 type Receiver interface {
-	incInputs()
-	inputs() int32
+	startable
+	joiner() *Joiner
 }
 
 type startable interface {
@@ -61,9 +58,13 @@ type Init struct {
 
 type Inner struct {
 	output
-	input
+	inputs  Joiner
 	started bool
 	fun     refl.Function
+}
+
+func (i *Inner) joiner() *Joiner {
+	return &i.inputs
 }
 
 func (i *Inner) isStarted() bool {
@@ -71,26 +72,17 @@ func (i *Inner) isStarted() bool {
 }
 
 type Terminal struct {
-	input
+	inputs  Joiner
 	started bool
 	fun     refl.Function
 }
 
+func (i *Terminal) joiner() *Joiner {
+	return &i.inputs
+}
+
 func (t *Terminal) isStarted() bool {
 	return t.started
-}
-
-type input struct {
-	nInputs int32
-	in      refl.Channel
-}
-
-func (i *input) incInputs() {
-	atomic.AddInt32(&i.nInputs, 1)
-}
-
-func (i *input) inputs() int32 {
-	return atomic.LoadInt32(&i.nInputs)
 }
 
 type output struct {
@@ -98,24 +90,7 @@ type output struct {
 }
 
 func (s *output) SendsTo(outputs ...Receiver) {
-	for i := range outputs {
-		outputs[i].incInputs()
-	}
 	s.outs = append(s.outs, outputs...)
-}
-
-func (s *output) SendsToFn(fun InnerFunc) *Inner {
-	inner := AsInner(fun)
-	inner.incInputs()
-	s.outs = append(s.outs, inner)
-	return inner
-}
-
-func (s *output) SendsToTermFn(fun TerminalFunc) *Terminal {
-	term := AsTerminal(fun)
-	term.incInputs()
-	s.outs = append(s.outs, term)
-	return term
 }
 
 func AsInit(fun InitFunc) *Init {
@@ -140,8 +115,8 @@ func AsInner(fun InnerFunc) *Inner {
 		panic(fn.String() + " second argument should be a writable channel")
 	}
 	return &Inner{
-		input: input{in: inCh.Instantiate(chBufLen)},
-		fun:   fn,
+		inputs: NewJoiner(inCh, chBufLen),
+		fun:    fn,
 	}
 }
 
@@ -154,22 +129,44 @@ func AsTerminal(fun TerminalFunc) *Terminal {
 		panic(fn.String() + " first argument should be a readable channel")
 	}
 	return &Terminal{
-		input: input{in: inCh.Instantiate(chBufLen)},
-		fun:   fn,
+		inputs: NewJoiner(inCh, chBufLen),
+		fun:    fn,
 	}
 }
 
 func (i *Init) Start() {
-	//i.fun.RunAsStartGoroutine(i)
-	panic("implement me")
+	if len(i.outs) == 0 {
+		panic("Init node should have outputs")
+	}
+	joiners := make([]*Joiner, 0, len(i.outs))
+	for _, out := range i.outs {
+		joiners = append(joiners, out.joiner())
+		if !out.isStarted() {
+			out.start()
+		}
+	}
+	forker := Fork(joiners...)
+	i.fun.RunAsStartGoroutine(forker.Sender(), forker.Close)
 }
 
 func (i *Inner) start() {
-	//TODO implement me
-	panic("implement me")
+	if len(i.outs) == 0 {
+		panic("Inner node should have outputs")
+	}
+	joiners := make([]*Joiner, 0, len(i.outs))
+	for _, out := range i.outs {
+		joiners = append(joiners, out.joiner())
+		if !out.isStarted() {
+			out.start()
+		}
+	}
+	forker := Fork(joiners...)
+	i.fun.RunAsMiddleGoroutine(
+		i.inputs.Receiver(),
+		forker.Sender(),
+		forker.Close)
 }
 
 func (t *Terminal) start() {
-	//TODO implement me
-	panic("implement me")
+	t.fun.RunAsEndGoroutine(t.inputs.Receiver())
 }
