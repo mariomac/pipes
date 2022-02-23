@@ -94,7 +94,7 @@ func TestRunNotEndedPipeline(t *testing.T) {
 		pipeline.Add(stringer)
 		pipeline.Add(bolder)
 		pipeline.Run()
-	}, "a pipeline without an End stage won't run")
+	}, "a pipeline without an End node won't run")
 }
 
 func TestBadPipelineFormation(t *testing.T) {
@@ -110,17 +110,17 @@ func TestBadPipelineFormation(t *testing.T) {
 	assert.Panics(t, func() {
 		p := Start(counter(3))
 		p.Add(bolder)
-	}, "must panic if the input of a stage does not match the type of the previous stage")
+	}, "must panic if the input of a node does not match the type of the previous node")
 	assert.Panics(t, func() {
 		p := Start(counter(3))
 		p.Add(func(in <-chan int) {})
 		p.Add(func(in <-chan int) {})
-	}, "must panic if trying to add a pipeline stage after a terminal (input-only) stage")
+	}, "must panic if trying to add a pipeline node after a terminal (input-only) node")
 	assert.Panics(t, func() {
 		p := Start(counter(3))
 		p.Add(func(in <-chan int) {})
 		p.Fork()
-	}, "must panic if trying to fork a pipeline that has a terminal stage")
+	}, "must panic if trying to fork a pipeline that has a terminal node")
 }
 
 func TestFork(t *testing.T) {

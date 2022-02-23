@@ -19,6 +19,10 @@ func WrapFunction(fn interface{}) Function {
 	return Function(val)
 }
 
+func (fn *Function) String() string {
+	return typeOf(fn).String()
+}
+
 // NumArgs gets the number of arguments of the function
 func (fn *Function) NumArgs() int {
 	return typeOf(fn).NumIn()
@@ -33,14 +37,14 @@ func (fn *Function) AssertNumberOfArguments(num int) {
 	}
 }
 
-// AssertArgumentIsDirectedChannel panics if the numbered argument is not a channel supporting the
-// provided direction
-func (fn *Function) AssertArgumentIsDirectedChannel(argNum int, dir reflect.ChanDir) {
+func (fn *Function) ArgChannelType(argNum int) ChannelType {
 	ftype := typeOf(fn)
 	arg := ftype.In(argNum)
-	if arg.Kind() != reflect.Chan || arg.ChanDir()&dir == 0 {
-		panic(ftype.Name() + " argument should be a writable channel only")
+	if arg.Kind() != reflect.Chan {
+		panic(fmt.Sprintf("%s argument #%d should be a channel. Got: %d",
+			ftype, argNum, arg.Kind()))
 	}
+	return ChannelType{inner: arg}
 }
 
 // AssertArgsConnectableChannels panics if the thisArg channel of the receiver function is not
@@ -56,32 +60,29 @@ func (fn *Function) AssertArgsConnectableChannels(thisArg int, from Function, fr
 // RunAsStartGoroutine runs in a goroutine a func(out chan<- T) instance. It creates and
 // returns a Channel with the provided buffer length. When the executed function is finished,
 // the channel is closed.
-func (fn *Function) RunAsStartGoroutine(chanBufLen int) Channel {
-	fnType := typeOf(fn)
-	outCh := makeChannel(fnType.In(0).Elem(), chanBufLen)
+func (fn *Function) RunAsStartGoroutine(output Channel, releaseFunc func()) {
+	outCh := output.Value
 	go func() {
-		defer outCh.Close()
+		defer releaseFunc()
 		valueOf(fn).Call([]reflect.Value{outCh})
 	}()
-	return Channel(outCh)
 }
 
 // RunAsEndGoroutine runs in a goroutine a func(in <-chan T) instance. It accepts a Channel
 // to be used as input for data
 func (fn *Function) RunAsEndGoroutine(inCh Channel) {
-	go valueOf(fn).Call([]reflect.Value{reflect.Value(inCh)})
+	go valueOf(fn).Call([]reflect.Value{inCh.Value})
 }
 
 // RunAsMiddleGoroutine runs in a goroutine a func(in <-chan T, out chan<- U) instance.
 // It accepts a Channel to be used as input for data and creates creates and
 // returns a Channel with the provided buffer length. When the executed function is finished,
 // the returned channel is closed.
-func (fn *Function) RunAsMiddleGoroutine(inCh Channel, channelsBuf int) Channel {
-	fnType := typeOf(fn)
-	outCh := makeChannel(fnType.In(1).Elem(), channelsBuf)
+func (fn *Function) RunAsMiddleGoroutine(input, output Channel) {
+	inCh := input.Value
+	outCh := output.Value
 	go func() {
 		defer outCh.Close()
-		valueOf(fn).Call([]reflect.Value{reflect.Value(inCh), outCh})
+		valueOf(fn).Call([]reflect.Value{inCh, outCh})
 	}()
-	return Channel(outCh)
 }

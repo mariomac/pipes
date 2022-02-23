@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/mariomac/go-pipes/pkg/node"
 	"strconv"
 
 	"github.com/mariomac/go-pipes/pkg/pipe"
@@ -33,19 +34,21 @@ func stringer(in <-chan int, out chan<- string) {
 }
 
 func main() {
-	p := pipe.Start(tenCounter)
-	p.Add(oddFilter)
-	p.Add(stringer)
-
 	endCh := make(chan struct{})
-	// you can also embed any function literal
-	// the ending function can only have an input channel
-	p.Add(func(in <-chan string) {
-		for s := range in {
-			fmt.Println("received string:", s)
-		}
-		close(endCh)
-	})
+
+	st1 := node.NewStart(tenCounter)
+	st2 := node.NewStart(tenCounter)
+	filter := st1.AddAfter(oddFilter)
+	st2.Connect(filter)
+	filter.AddAfter(stringer).
+		TerminateAfter(func(in <-chan string) {
+			for s := range in {
+				fmt.Println("received string:", s)
+			}
+			close(endCh)
+		})
+
+	pipe.Start(st1, st2)
 
 	p.Run()
 

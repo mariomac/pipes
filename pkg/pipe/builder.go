@@ -1,31 +1,9 @@
 package pipe
 
 import (
+	refl "github.com/mariomac/go-pipes/pkg/internal/refl"
 	"reflect"
-
-	"github.com/mariomac/go-pipes/pkg/pipe/internal/refl"
 )
-
-// TODO: when we are ready to integrate Go 1.18, enforce functions' type safety redefining the
-// following types as:
-//
-// type StartFunction[OUT any] func(out chan<- OUT)
-// type StageFunction[IN, OUT any] func(in <-chan IN, out chan<- OUT)
-// type EndFunction[IN any] func(out <-chan IN)
-//
-// That would save us a lot of reflection checks at runtime
-
-// StartFunction is a function that receives a writable channel as unique argument, and sends
-// value to that channel during an indefinite amount of time
-type StartFunction interface{}
-
-// StageFunction is a function that can have two signatures:
-// 1- If it's an intermediate pipeline stage, it receives a readable channel as first argument,
-// and a writable channel as second argument.
-// 2- If it's the end of the pipeline, it receives a readable channel as unique argument.
-// It must process the inputs from the input channel until
-// it's closed, and optionally forward the processed results to the output channel.
-type StageFunction interface{}
 
 // BuilderRunner can build pipelines and eventually run Them
 type BuilderRunner interface {
@@ -36,7 +14,7 @@ type BuilderRunner interface {
 
 // Builder allows building pipelines but not running them. Used for fork's sub-pipelines
 type Builder interface {
-	// Add a stage to the pipeline
+	// Add a node to the pipeline
 	Add(function StageFunction)
 	// Fork the pipeline into two sub-pipelines that will receive the input from the previous
 	Fork() (left, right Builder)
@@ -44,11 +22,11 @@ type Builder interface {
 
 type builderRunner struct {
 	ended             bool
-	line              []stage
+	line              []node
 	lastAddedFunction refl.Function
 }
 
-type stage struct {
+type sstage struct {
 	fork     *fork
 	function refl.Function
 }
@@ -58,7 +36,7 @@ type fork struct {
 	right *builderRunner
 }
 
-// Start defining a pipeline whose first stage is a StartFunction passed as first argument. When
+// Start defining a pipeline whose first node is a StartFunction passed as first argument. When
 // the StartFunction finishes, its output channel will be automatically closed, causing the subsequent
 // pipeline stages to end in cascade.
 func Start(function StartFunction) BuilderRunner {
@@ -66,42 +44,42 @@ func Start(function StartFunction) BuilderRunner {
 	fn.AssertNumberOfArguments(1)
 	fn.AssertArgumentIsDirectedChannel(0, reflect.SendDir)
 	return &builderRunner{
-		line:              []stage{{function: fn}},
+		line:              []node{{function: fn}},
 		lastAddedFunction: fn,
 	}
 }
 
-// Add a new StageFunction to the pipeline stage. The passed function should handle the case where
+// Add a new StageFunction to the pipeline node. The passed function should handle the case where
 // the input channel is closed, and gracefully end. When the StageFunction ends,
 // its output channel will be automatically closed, causing the subsequent
 // pipeline stages to end in cascade.
 func (b *builderRunner) Add(function StageFunction) {
 	if b.ended {
-		panic("this builderRunner has been ended by a final stage or Fork method. Can't add more stages")
+		panic("this builderRunner has been ended by a final node or Fork method. Can't add more stages")
 	}
 	fn := refl.WrapFunction(function)
-	// check if the function is an ending stage (1 single output channel) or a middle stage
+	// check if the function is an ending node (1 single output channel) or a middle node
 	if fn.NumArgs() == 1 {
-		// ending stage: check that it only has a single read channel
+		// ending node: check that it only has a single read channel
 		fn.AssertArgumentIsDirectedChannel(0, reflect.RecvDir)
 		b.ended = true
 	} else {
-		// middle stage. check that it has a read channel and a write channel
+		// middle node. check that it has a read channel and a write channel
 		fn.AssertNumberOfArguments(2)
 		fn.AssertArgumentIsDirectedChannel(0, reflect.RecvDir)
 		fn.AssertArgumentIsDirectedChannel(1, reflect.SendDir)
 	}
-	// Check that the last argument of the previous stage (output channel) is assignable to the
-	// first argument of the current stage (input channel)
+	// Check that the last argument of the previous node (output channel) is assignable to the
+	// first argument of the current node (input channel)
 	previous := b.lastAddedFunction
 	fn.AssertArgsConnectableChannels(0, previous, previous.NumArgs()-1)
-	b.line = append(b.line, stage{function: fn})
+	b.line = append(b.line, node{function: fn})
 	b.lastAddedFunction = fn
 }
 
 // Fork splits the current pipeline in two sub-pipelines that will receive the output of the
-// previous pipeline stage in the parent pipeline. Both pipelines will receive the same input
-// from its previous stage.
+// previous pipeline node in the parent pipeline. Both pipelines will receive the same input
+// from its previous node.
 // It returns Builder instances for bot sub-pipelines. Running the parent pipeline will also run
 // the two sub-pipelines.
 func (b *builderRunner) Fork() (left, right Builder) {
@@ -111,11 +89,11 @@ func (b *builderRunner) Fork() (left, right Builder) {
 	b.ended = true
 	leftBR := &builderRunner{lastAddedFunction: b.lastAddedFunction}
 	rightBR := &builderRunner{lastAddedFunction: b.lastAddedFunction}
-	b.line = append(b.line, stage{fork: &fork{left: leftBR, right: rightBR}})
+	b.line = append(b.line, node{fork: &fork{left: leftBR, right: rightBR}})
 	return leftBR, rightBR
 }
 
-// Run all the pipeline stages in background. Each pipeline stage will run in its own goroutine.
+// Run all the pipeline stages in background. Each pipeline node will run in its own goroutine.
 func (b *builderRunner) Run() {
 	checkPipelineIsEnded(b)
 	b.run(refl.NilChannel())
