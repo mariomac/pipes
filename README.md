@@ -1,4 +1,4 @@
-# Dynamic asynchronous graph processing
+# Dynamic graph architecture for asynchronous parallel processing in Go
 
 API doc: https://pkg.go.dev/github.com/mariomac/go-pipes
 
