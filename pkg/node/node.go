@@ -4,6 +4,7 @@
 package node
 
 import (
+	"github.com/mariomac/go-pipes/pkg/internal/connect"
 	"github.com/mariomac/go-pipes/pkg/internal/refl"
 )
 
@@ -37,7 +38,7 @@ type Sender interface {
 // Receiver is any node that can receive data from another node: node.Inner and node.Terminal
 type Receiver interface {
 	startable
-	joiner() *Joiner
+	joiner() *connect.Joiner
 }
 
 type startable interface {
@@ -45,7 +46,7 @@ type startable interface {
 	start()
 }
 
-// Init nodes are the starting points of a graph. This is all the nodes that bring information
+// Init nodes are the starting points of a graph. This is, all the nodes that bring information
 // from outside the graph: e.g. because they generate them or because they acquire them from an
 // external source like a Web Service.
 // A graph must have at least one Init node.
@@ -55,7 +56,7 @@ type Init struct {
 	fun refl.Function
 }
 
-func (i *Inner) joiner() *Joiner {
+func (i *Inner) joiner() *connect.Joiner {
 	return &i.inputs
 }
 
@@ -68,7 +69,7 @@ func (i *Inner) isStarted() bool {
 // An Inner node must have at least one output node.
 type Inner struct {
 	output
-	inputs  Joiner
+	inputs  connect.Joiner
 	started bool
 	fun     refl.Function
 }
@@ -76,12 +77,12 @@ type Inner struct {
 // Terminal is any node that receives data from another node and does not forward it to another node,
 // but can process it and send the results to outside the graph (e.g. memory, storage, web...)
 type Terminal struct {
-	inputs  Joiner
+	inputs  connect.Joiner
 	started bool
 	fun     refl.Function
 }
 
-func (i *Terminal) joiner() *Joiner {
+func (i *Terminal) joiner() *connect.Joiner {
 	return &i.inputs
 }
 
@@ -94,6 +95,8 @@ type output struct {
 }
 
 func (s *output) SendsTo(outputs ...Receiver) {
+	// TODO: verify that the output channel of the sender coincides with the input
+	// channels of the receiver
 	s.outs = append(s.outs, outputs...)
 }
 
@@ -123,7 +126,7 @@ func AsInner(fun InnerFunc) *Inner {
 		panic(fn.String() + " second argument should be a writable channel")
 	}
 	return &Inner{
-		inputs: NewJoiner(inCh, chBufLen),
+		inputs: connect.NewJoiner(inCh, chBufLen),
 		fun:    fn,
 	}
 }
@@ -139,7 +142,7 @@ func AsTerminal(fun TerminalFunc) *Terminal {
 		panic(fn.String() + " first argument should be a readable channel")
 	}
 	return &Terminal{
-		inputs: NewJoiner(inCh, chBufLen),
+		inputs: connect.NewJoiner(inCh, chBufLen),
 		fun:    fn,
 	}
 }
@@ -148,14 +151,14 @@ func (i *Init) Start() {
 	if len(i.outs) == 0 {
 		panic("Init node should have outputs")
 	}
-	joiners := make([]*Joiner, 0, len(i.outs))
+	joiners := make([]*connect.Joiner, 0, len(i.outs))
 	for _, out := range i.outs {
 		joiners = append(joiners, out.joiner())
 		if !out.isStarted() {
 			out.start()
 		}
 	}
-	forker := Fork(joiners...)
+	forker := connect.Fork(joiners...)
 	i.fun.RunAsStartGoroutine(forker.Sender(), forker.Close)
 }
 
@@ -164,14 +167,14 @@ func (i *Inner) start() {
 		panic("Inner node should have outputs")
 	}
 	i.started = true
-	joiners := make([]*Joiner, 0, len(i.outs))
+	joiners := make([]*connect.Joiner, 0, len(i.outs))
 	for _, out := range i.outs {
 		joiners = append(joiners, out.joiner())
 		if !out.isStarted() {
 			out.start()
 		}
 	}
-	forker := Fork(joiners...)
+	forker := connect.Fork(joiners...)
 	i.fun.RunAsMiddleGoroutine(
 		i.inputs.Receiver(),
 		forker.Sender(),

@@ -1,4 +1,4 @@
-package node
+package connect
 
 import (
 	"testing"

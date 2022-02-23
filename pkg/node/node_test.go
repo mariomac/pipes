@@ -3,10 +3,13 @@ package node
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	helpers "github.com/mariomac/go-pipes/pkg/test"
 	"github.com/stretchr/testify/assert"
 )
+
+const timeout = 2 * time.Second
 
 func TestBasicGraph(t *testing.T) {
 	waiter := helpers.AsyncWait(1)
@@ -51,6 +54,32 @@ func TestBasicGraph(t *testing.T) {
 		"odd: 7":  {},
 		"even: 8": {},
 	}, collected)
+}
+
+func TestGraphVerification(t *testing.T) {
+	assert.Panics(t, func() {
+		_ = AsInit(func(out <-chan int) {})
+	}, "must panic if the init channel is not writable")
+	assert.Panics(t, func() {
+		_ = AsInit(func() {})
+	}, "must panic if the init function has no arguments")
+	assert.Panics(t, func() {
+		_ = AsInit(func(in, out chan int) {})
+	}, "must panic if the Init function has more than one argument")
+	//assert.Panics(t, func() {
+	//	p := AsInit(Counter(1, 2))
+	//	p.SendsTo(AsTerminal(func(in chan string) {}))
+	//}, "must panic if the input of a node does not match the type of the previous node")
+	//assert.Panics(t, func() {
+	//	p := Start(counter(3))
+	//	p.Add(func(in <-chan int) {})
+	//	p.Add(func(in <-chan int) {})
+	//}, "must panic if trying to add a pipeline stage after a terminal (input-only) stage")
+	//assert.Panics(t, func() {
+	//	p := Start(counter(3))
+	//	p.Add(func(in <-chan int) {})
+	//	p.Fork()
+	//}, "must panic if trying to fork a pipeline that has a terminal stage")
 }
 
 func Counter(from, to int) func(out chan<- int) {
