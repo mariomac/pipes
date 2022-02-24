@@ -57,9 +57,13 @@ func (fn *Function) RunAsStartGoroutine(output Channel, releaseFunc func()) {
 }
 
 // RunAsEndGoroutine runs in a goroutine a func(in <-chan T) instance. It accepts a Channel
-// to be used as input for data
-func (fn *Function) RunAsEndGoroutine(inCh Channel) {
-	go valueOf(fn).Call([]reflect.Value{inCh.Value})
+// to be used as input for data.
+// The releaseFunc will be invoked when the wrapped function ends.
+func (fn *Function) RunAsEndGoroutine(inCh Channel, releaseFunc func()) {
+	go func() {
+		defer releaseFunc()
+		valueOf(fn).Call([]reflect.Value{inCh.Value})
+	}()
 }
 
 // RunAsMiddleGoroutine runs in a goroutine a func(in <-chan T, out chan<- U) instance.

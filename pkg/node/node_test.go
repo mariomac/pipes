@@ -5,14 +5,13 @@ import (
 	"testing"
 	"time"
 
-	helpers "github.com/mariomac/go-pipes/pkg/test"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const timeout = 2 * time.Second
 
 func TestBasicGraph(t *testing.T) {
-	waiter := helpers.AsyncWait(1)
 	start1 := AsInit(Counter(1, 3))
 	start2 := AsInit(Counter(6, 8))
 	odds := AsMiddle(OddFilter)
@@ -24,7 +23,6 @@ func TestBasicGraph(t *testing.T) {
 		for str := range strs {
 			collected[str] = struct{}{}
 		}
-		waiter.Done()
 	})
 	/*
 		start1----\ /---start2
@@ -45,7 +43,13 @@ func TestBasicGraph(t *testing.T) {
 	start1.Start()
 	start2.Start()
 
-	waiter.Wait(t, timeout)
+	select {
+	case <-collector.Done():
+	// ok!
+	case <-time.After(timeout):
+		require.Fail(t, "timeout while waiting for pipeline to complete")
+	}
+
 	assert.Equal(t, map[string]struct{}{
 		"odd: 1":  {},
 		"even: 2": {},

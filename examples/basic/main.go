@@ -10,12 +10,14 @@ import (
 
 func StartCounter(out chan<- int) {
 	for i := 0; i < 5; i++ {
+		time.Sleep(100 * time.Millisecond)
 		out <- i
 	}
 }
 
 func StartRandoms(out chan<- int) {
 	for i := 0; i < 5; i++ {
+		time.Sleep(150 * time.Millisecond)
 		out <- rand.Intn(1000)
 	}
 }
@@ -79,5 +81,7 @@ func main() {
 	start1.Start()
 	start2.Start()
 
-	time.Sleep(2 * time.Second)
+	// We can wait for terminal nodes to finish their execution
+	// after the rest of the graph has finished
+	<-printer.Done()
 }

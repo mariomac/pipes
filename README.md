@@ -62,7 +62,9 @@ func main() {
 	start1.Start()
 	start2.Start()
 
-	time.Sleep(2 * time.Second)
+    // We can wait for terminal nodes to finish their execution
+    // after the rest of the graph has finished
+    <-printer.Done()
 }
 ```
 

@@ -27,11 +27,10 @@ func TestJoiner(t *testing.T) {
 		for i := range in {
 			set[i] = struct{}{}
 		}
-		finished.Done()
 	})
 	j := NewJoiner(receiver.ArgChannelType(0), 20)
 	// running this concurrently will help detecting race conditions
-	go receiver.RunAsEndGoroutine(j.Receiver())
+	go receiver.RunAsEndGoroutine(j.Receiver(), finished.Done)
 	go sender1.RunAsStartGoroutine(j.AcquireSender(), j.ReleaseSender)
 	go sender2.RunAsStartGoroutine(j.AcquireSender(), j.ReleaseSender)
 	go sender3.RunAsStartGoroutine(j.AcquireSender(), j.ReleaseSender)
@@ -54,21 +53,18 @@ func TestForker(t *testing.T) {
 		for i := range in {
 			arr1 = append(arr1, i)
 		}
-		finished.Done()
 	})
 	var arr2 []int
 	receiver2 := refl.WrapFunction(func(in <-chan int) {
 		for i := range in {
 			arr2 = append(arr2, i*2)
 		}
-		finished.Done()
 	})
 	var arr3 []int
 	receiver3 := refl.WrapFunction(func(in <-chan int) {
 		for i := range in {
 			arr3 = append(arr3, i+10)
 		}
-		finished.Done()
 	})
 
 	joiner1 := NewJoiner(sender.ArgChannelType(0), 20)
@@ -77,9 +73,9 @@ func TestForker(t *testing.T) {
 	f := Fork(&joiner1, &joiner2, &joiner3)
 	// running this concurrently will help detecting race conditions
 	go sender.RunAsStartGoroutine(f.Sender(), f.Close)
-	go receiver1.RunAsEndGoroutine(joiner1.Receiver())
-	go receiver2.RunAsEndGoroutine(joiner2.Receiver())
-	go receiver3.RunAsEndGoroutine(joiner3.Receiver())
+	go receiver1.RunAsEndGoroutine(joiner1.Receiver(), finished.Done)
+	go receiver2.RunAsEndGoroutine(joiner2.Receiver(), finished.Done)
+	go receiver3.RunAsEndGoroutine(joiner3.Receiver(), finished.Done)
 
 	finished.Wait(t, timeout)
 

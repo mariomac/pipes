@@ -92,6 +92,7 @@ type Terminal struct {
 	inputs  connect.Joiner
 	started bool
 	fun     refl.Function
+	done    chan struct{}
 }
 
 func (i *Terminal) joiner() *connect.Joiner {
@@ -100,6 +101,14 @@ func (i *Terminal) joiner() *connect.Joiner {
 
 func (t *Terminal) isStarted() bool {
 	return t.started
+}
+
+// Done returns a channel that is closed when the Terminal node has ended its processing. This
+// is, when all its inputs have been also closed. Waiting for all the Terminal nodes to finish
+// allows blocking the execution until all the data in the graph has been processed and all the
+// previous stages have ended
+func (t *Terminal) Done() <-chan struct{} {
+	return t.done
 }
 
 // AsInit wraps an InitFunc into an Init node. It panics if the InitFunc does not follow the
@@ -146,6 +155,7 @@ func AsTerminal(fun TerminalFunc) *Terminal {
 	return &Terminal{
 		inputs: connect.NewJoiner(inCh, chBufLen),
 		fun:    fn,
+		done:   make(chan struct{}),
 	}
 }
 
@@ -185,7 +195,9 @@ func (i *Middle) start() {
 
 func (t *Terminal) start() {
 	t.started = true
-	t.fun.RunAsEndGoroutine(t.inputs.Receiver())
+	t.fun.RunAsEndGoroutine(t.inputs.Receiver(), func() {
+		close(t.done)
+	})
 }
 
 func assertChannelsCompatibility(srcInputType refl.ChannelType, outputs []Receiver) {
