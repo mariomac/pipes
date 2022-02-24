@@ -15,15 +15,15 @@ There are three types of nodes:
   from outside the graph: e.g. because they generate them or because they acquire them from an
   external source like a Web Service. A graph must have at least one Init node. An Init node must 
   have at least one output node.
-* **Inner** node: any intermediate node that receives data from another node, processes/filters it,
-  and forwards the data to another node. An Inner node must have at least one output node.
+* **Middle** node: any intermediate node that receives data from another node, processes/filters it,
+  and forwards the data to another node. A Middle node must have at least one output node.
 * **Terminal** node: any node that receives data from another node and does not forward it to
   another node, but can process it and send the results to outside the graph
   (e.g. memory, storage, web...)
 
 ## Example pipeline
 
-The following pipeline has two Init nodes that send the data to two destination Inner
+The following pipeline has two Init nodes that send the data to two destination Middle
 nodes (`odds` and `evens`). From there, the data follows their own branches until they
 are eventually joined in the `printer` Terminal node.
 
@@ -31,13 +31,13 @@ Check the complete examples in the [examples/](./examples) folder).
 
 ```go
 func main() {
-	// Defining init, inner and terminal nodes that wrap some functions
+	// Defining init, middle and terminal nodes that wrap some functions
 	start1 := node.AsInit(StartCounter)
 	start2 := node.AsInit(StartRandoms)
-	odds := node.AsInner(OddFilter)
-	evens := node.AsInner(EvenFilter)
-	oddsMsg := node.AsInner(Messager("odd number"))
-	evensMsg := node.AsInner(Messager("even number"))
+	odds := node.AsMiddle(OddFilter)
+	evens := node.AsMiddle(EvenFilter)
+	oddsMsg := node.AsMiddle(Messager("odd number"))
+	evensMsg := node.AsMiddle(Messager("even number"))
 	printer := node.AsTerminal(Printer)
 	
 	// Connecting nodes like:
@@ -57,6 +57,8 @@ func main() {
 	oddsMsg.SendsTo(printer)
 	evensMsg.SendsTo(printer)
 
+	// all the Init nodes must be started to
+	// start forwarding data to the rest of the graph
 	start1.Start()
 	start2.Start()
 

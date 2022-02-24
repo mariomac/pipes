@@ -15,10 +15,10 @@ func TestBasicGraph(t *testing.T) {
 	waiter := helpers.AsyncWait(1)
 	start1 := AsInit(Counter(1, 3))
 	start2 := AsInit(Counter(6, 8))
-	odds := AsInner(OddFilter)
-	evens := AsInner(EvenFilter)
-	oddsMsg := AsInner(Messager("odd"))
-	evensMsg := AsInner(Messager("even"))
+	odds := AsMiddle(OddFilter)
+	evens := AsMiddle(EvenFilter)
+	oddsMsg := AsMiddle(Messager("odd"))
+	evensMsg := AsMiddle(Messager("even"))
 	collected := map[string]struct{}{}
 	collector := AsTerminal(func(strs <-chan string) {
 		for str := range strs {

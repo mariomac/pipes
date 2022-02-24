@@ -17,12 +17,12 @@ const chBufLen = 20
 // type InitFunc[OUT any] func(out chan<- OUT)
 type InitFunc interface{}
 
-// InnerFunc is a function that receives a readable channel as first argument,
+// MiddleFunc is a function that receives a readable channel as first argument,
 // and a writable channel as second argument.
 // It must process the inputs from the input channel until it's closed.
 // TODO: with Go 1.18, this will be
-// type InnerFunc[IN, OUT any] func(in <-chan IN, out chan<- OUT)
-type InnerFunc interface{}
+// type MiddleFunc[IN, OUT any] func(in <-chan IN, out chan<- OUT)
+type MiddleFunc interface{}
 
 // TerminalFunc is a function that receives a readable channel as unique argument.
 // It must process the inputs from the input channel until it's closed.
@@ -30,12 +30,12 @@ type InnerFunc interface{}
 // type TerminalFunc[IN any] func(out <-chan IN)
 type TerminalFunc interface{}
 
-// Sender is any node that can send data to another node: node.Init and node.Inner
+// Sender is any node that can send data to another node: node.Init and node.Middle
 type Sender interface {
 	SendsTo(...Receiver)
 }
 
-// Receiver is any node that can receive data from another node: node.Inner and node.Terminal
+// Receiver is any node that can receive data from another node: node.Middle and node.Terminal
 type Receiver interface {
 	startable
 	joiner() *connect.Joiner
@@ -56,18 +56,18 @@ type Init struct {
 	fun refl.Function
 }
 
-func (i *Inner) joiner() *connect.Joiner {
+func (i *Middle) joiner() *connect.Joiner {
 	return &i.inputs
 }
 
-func (i *Inner) isStarted() bool {
+func (i *Middle) isStarted() bool {
 	return i.started
 }
 
-// Inner is any intermediate node that receives data from another node, processes/filters it,
+// Middle is any intermediate node that receives data from another node, processes/filters it,
 // and forwards the data to another node.
-// An Inner node must have at least one output node.
-type Inner struct {
+// An Middle node must have at least one output node.
+type Middle struct {
 	output
 	inputs  connect.Joiner
 	started bool
@@ -111,9 +111,9 @@ func AsInit(fun InitFunc) *Init {
 	return &Init{fun: fn}
 }
 
-// AsInner wraps an InnerFunc into an Inner node.
-// It panics if the InnerFunc does not follow the func(<-chan,chan<-) signature.
-func AsInner(fun InnerFunc) *Inner {
+// AsMiddle wraps an MiddleFunc into an Middle node.
+// It panics if the MiddleFunc does not follow the func(<-chan,chan<-) signature.
+func AsMiddle(fun MiddleFunc) *Middle {
 	fn := refl.WrapFunction(fun)
 	// check that the arguments are a read channel and a write channel
 	fn.AssertNumberOfArguments(2)
@@ -125,7 +125,7 @@ func AsInner(fun InnerFunc) *Inner {
 	if !outCh.CanSend() {
 		panic(fn.String() + " second argument should be a writable channel")
 	}
-	return &Inner{
+	return &Middle{
 		inputs: connect.NewJoiner(inCh, chBufLen),
 		fun:    fn,
 	}
@@ -162,9 +162,9 @@ func (i *Init) Start() {
 	i.fun.RunAsStartGoroutine(forker.Sender(), forker.Close)
 }
 
-func (i *Inner) start() {
+func (i *Middle) start() {
 	if len(i.outs) == 0 {
-		panic("Inner node should have outputs")
+		panic("Middle node should have outputs")
 	}
 	i.started = true
 	joiners := make([]*connect.Joiner, 0, len(i.outs))
