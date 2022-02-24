@@ -4,6 +4,8 @@
 package node
 
 import (
+	"fmt"
+
 	"github.com/mariomac/go-pipes/pkg/internal/connect"
 	"github.com/mariomac/go-pipes/pkg/internal/refl"
 )
@@ -52,8 +54,23 @@ type startable interface {
 // A graph must have at least one Init node.
 // An Init node must have at least one output node.
 type Init struct {
-	output
-	fun refl.Function
+	outs []Receiver
+	fun  refl.Function
+}
+
+func (s *Init) SendsTo(outputs ...Receiver) {
+	assertChannelsCompatibility(s.fun.ArgChannelType(0), outputs)
+	s.outs = append(s.outs, outputs...)
+}
+
+// Middle is any intermediate node that receives data from another node, processes/filters it,
+// and forwards the data to another node.
+// An Middle node must have at least one output node.
+type Middle struct {
+	outs    []Receiver
+	inputs  connect.Joiner
+	started bool
+	fun     refl.Function
 }
 
 func (i *Middle) joiner() *connect.Joiner {
@@ -64,14 +81,9 @@ func (i *Middle) isStarted() bool {
 	return i.started
 }
 
-// Middle is any intermediate node that receives data from another node, processes/filters it,
-// and forwards the data to another node.
-// An Middle node must have at least one output node.
-type Middle struct {
-	output
-	inputs  connect.Joiner
-	started bool
-	fun     refl.Function
+func (s *Middle) SendsTo(outputs ...Receiver) {
+	assertChannelsCompatibility(s.fun.ArgChannelType(1), outputs)
+	s.outs = append(s.outs, outputs...)
 }
 
 // Terminal is any node that receives data from another node and does not forward it to another node,
@@ -88,16 +100,6 @@ func (i *Terminal) joiner() *connect.Joiner {
 
 func (t *Terminal) isStarted() bool {
 	return t.started
-}
-
-type output struct {
-	outs []Receiver
-}
-
-func (s *output) SendsTo(outputs ...Receiver) {
-	// TODO: verify that the output channel of the sender coincides with the input
-	// channels of the receiver
-	s.outs = append(s.outs, outputs...)
 }
 
 // AsInit wraps an InitFunc into an Init node. It panics if the InitFunc does not follow the
@@ -184,4 +186,17 @@ func (i *Middle) start() {
 func (t *Terminal) start() {
 	t.started = true
 	t.fun.RunAsEndGoroutine(t.inputs.Receiver())
+}
+
+func assertChannelsCompatibility(srcInputType refl.ChannelType, outputs []Receiver) {
+	for _, out := range outputs {
+		switch t := out.(type) {
+		case *Middle:
+			srcInputType.AssertCanSendTo(t.fun.ArgChannelType(0))
+		case *Terminal:
+			srcInputType.AssertCanSendTo(t.fun.ArgChannelType(0))
+		default:
+			panic(fmt.Sprintf("unknown Receiver implementor %T. This is a bug! fix it", out))
+		}
+	}
 }

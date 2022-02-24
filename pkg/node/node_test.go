@@ -66,20 +66,41 @@ func TestGraphVerification(t *testing.T) {
 	assert.Panics(t, func() {
 		_ = AsInit(func(in, out chan int) {})
 	}, "must panic if the Init function has more than one argument")
-	//assert.Panics(t, func() {
-	//	p := AsInit(Counter(1, 2))
-	//	p.SendsTo(AsTerminal(func(in chan string) {}))
-	//}, "must panic if the input of a node does not match the type of the previous node")
-	//assert.Panics(t, func() {
-	//	p := Start(counter(3))
-	//	p.Add(func(in <-chan int) {})
-	//	p.Add(func(in <-chan int) {})
-	//}, "must panic if trying to add a pipeline stage after a terminal (input-only) stage")
-	//assert.Panics(t, func() {
-	//	p := Start(counter(3))
-	//	p.Add(func(in <-chan int) {})
-	//	p.Fork()
-	//}, "must panic if trying to fork a pipeline that has a terminal stage")
+	assert.Panics(t, func() {
+		_ = AsInit(func(in []int) {})
+	}, "must panic if the init function argument is not a channel")
+	assert.Panics(t, func() {
+		_ = AsMiddle(func(in chan<- int, out chan<- int) {})
+	}, "must panic if a Middle in channel is not readable")
+	assert.Panics(t, func() {
+		_ = AsMiddle(func(in <-chan int, out <-chan int) {})
+	}, "must panic if a Middle out channel is not writable")
+	assert.Panics(t, func() {
+		_ = AsMiddle(func(in int, out chan<- int) {})
+	}, "must panic if a Middle input not a channel")
+	assert.Panics(t, func() {
+		_ = AsMiddle(func(in <-chan int, out int) {})
+	}, "must panic if a Middle out is not a channel")
+	assert.Panics(t, func() {
+		_ = AsMiddle(func(in <-chan int) {})
+	}, "must panic if a Middle does not have two arguments")
+	assert.Panics(t, func() {
+		p := AsInit(Counter(1, 2))
+		p.SendsTo(AsMiddle(func(in, out chan string) {}))
+	}, "must panic if the input of a middle node does not match the type of the previous inner node")
+	assert.Panics(t, func() {
+		p := AsInit(Counter(1, 2))
+		p.SendsTo(AsTerminal(func(in chan string) {}))
+	}, "must panic if the input of a terminal node does not match the type of the previous inner node")
+	assert.Panics(t, func() {
+		m := AsMiddle(Messager("boom"))
+		m.SendsTo(AsMiddle(OddFilter))
+	}, "must panic if the input of a middle node does not match the type of the previous middle node")
+	assert.Panics(t, func() {
+		m := AsMiddle(OddFilter)
+		m.SendsTo(AsTerminal(func(in chan string) {}))
+	}, "must panic if the input of a terminal node does not match the type of the previous middle node")
+
 }
 
 func Counter(from, to int) func(out chan<- int) {

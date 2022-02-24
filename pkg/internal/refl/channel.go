@@ -1,6 +1,9 @@
 package refl
 
-import "reflect"
+import (
+	"fmt"
+	"reflect"
+)
 
 // Channel wraps a channel for its usage with refl.Function objects
 type Channel struct {
@@ -27,4 +30,10 @@ func (ch *ChannelType) CanReceive() bool {
 
 func (ch *ChannelType) Instantiate(bufLen int) Channel {
 	return Channel{makeChannel(ch.inner.Elem(), bufLen)}
+}
+
+func (ch *ChannelType) AssertCanSendTo(dst ChannelType) {
+	if !ch.inner.Elem().AssignableTo(dst.inner.Elem()) {
+		panic(fmt.Sprintf("%s can't send data to %s", ch.inner, dst.inner))
+	}
 }
