@@ -1,4 +1,4 @@
-module github.com/mariomac/go-pipes
+module github.com/netobserv/gopipes
 
 go 1.17
 

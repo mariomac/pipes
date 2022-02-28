@@ -1,6 +1,6 @@
 # Dynamic graph architecture for asynchronous parallel processing in Go
 
-API doc: https://pkg.go.dev/github.com/mariomac/go-pipes
+API doc: https://pkg.go.dev/github.com/netobserv/gopipes
 
 Go-pipes is a library that allows to dynamically connect multiple pipeline
 stages that are communicated via channels. Each stage will run in a goroutine.

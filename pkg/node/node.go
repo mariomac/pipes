@@ -6,8 +6,8 @@ package node
 import (
 	"fmt"
 
-	"github.com/mariomac/go-pipes/pkg/internal/connect"
-	"github.com/mariomac/go-pipes/pkg/internal/refl"
+	"github.com/netobserv/gopipes/pkg/internal/connect"
+	"github.com/netobserv/gopipes/pkg/internal/refl"
 )
 
 // todo: make it configurable

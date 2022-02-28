@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mariomac/go-pipes/pkg/internal/refl"
-	helpers "github.com/mariomac/go-pipes/pkg/test"
+	"github.com/netobserv/gopipes/pkg/internal/refl"
+	helpers "github.com/netobserv/gopipes/pkg/test"
 	"github.com/stretchr/testify/assert"
 )
 
