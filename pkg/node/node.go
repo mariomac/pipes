@@ -5,6 +5,7 @@ package node
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/netobserv/gopipes/pkg/internal/connect"
 	"github.com/netobserv/gopipes/pkg/internal/refl"
@@ -34,13 +35,18 @@ type TerminalFunc interface{}
 
 // Sender is any node that can send data to another node: node.Init and node.Middle
 type Sender interface {
+	// SendsTo connect a sender with a group of receivers
 	SendsTo(...Receiver)
+	// OutType returns the inner type of the Sender's output channel
+	OutType() reflect.Type
 }
 
 // Receiver is any node that can receive data from another node: node.Middle and node.Terminal
 type Receiver interface {
 	startable
 	joiner() *connect.Joiner
+	// InType returns the inner type of the Receiver's input channel
+	InType() reflect.Type
 }
 
 type startable interface {
@@ -54,13 +60,18 @@ type startable interface {
 // A graph must have at least one Init node.
 // An Init node must have at least one output node.
 type Init struct {
-	outs []Receiver
-	fun  refl.Function
+	outs    []Receiver
+	fun     refl.Function
+	outType reflect.Type
 }
 
 func (s *Init) SendsTo(outputs ...Receiver) {
 	assertChannelsCompatibility(s.fun.ArgChannelType(0), outputs)
 	s.outs = append(s.outs, outputs...)
+}
+
+func (s *Init) OutType() reflect.Type {
+	return s.outType
 }
 
 // Middle is any intermediate node that receives data from another node, processes/filters it,
@@ -71,6 +82,8 @@ type Middle struct {
 	inputs  connect.Joiner
 	started bool
 	fun     refl.Function
+	outType reflect.Type
+	inType  reflect.Type
 }
 
 func (i *Middle) joiner() *connect.Joiner {
@@ -86,6 +99,14 @@ func (s *Middle) SendsTo(outputs ...Receiver) {
 	s.outs = append(s.outs, outputs...)
 }
 
+func (m *Middle) OutType() reflect.Type {
+	return m.outType
+}
+
+func (m *Middle) InType() reflect.Type {
+	return m.inType
+}
+
 // Terminal is any node that receives data from another node and does not forward it to another node,
 // but can process it and send the results to outside the graph (e.g. memory, storage, web...)
 type Terminal struct {
@@ -93,6 +114,7 @@ type Terminal struct {
 	started bool
 	fun     refl.Function
 	done    chan struct{}
+	inType  reflect.Type
 }
 
 func (i *Terminal) joiner() *connect.Joiner {
@@ -111,6 +133,10 @@ func (t *Terminal) Done() <-chan struct{} {
 	return t.done
 }
 
+func (m *Terminal) InType() reflect.Type {
+	return m.inType
+}
+
 // AsInit wraps an InitFunc into an Init node. It panics if the InitFunc does not follow the
 // func(chan<-) signature.
 func AsInit(fun InitFunc) *Init {
@@ -119,7 +145,10 @@ func AsInit(fun InitFunc) *Init {
 	if !fn.ArgChannelType(0).CanSend() {
 		panic(fn.String() + " first argument should be a writable channel")
 	}
-	return &Init{fun: fn}
+	return &Init{
+		fun:     fn,
+		outType: fn.ArgChannelType(0).ElemType(),
+	}
 }
 
 // AsMiddle wraps an MiddleFunc into an Middle node.
@@ -137,8 +166,10 @@ func AsMiddle(fun MiddleFunc) *Middle {
 		panic(fn.String() + " second argument should be a writable channel")
 	}
 	return &Middle{
-		inputs: connect.NewJoiner(inCh, chBufLen),
-		fun:    fn,
+		inputs:  connect.NewJoiner(inCh, chBufLen),
+		fun:     fn,
+		inType:  inCh.ElemType(),
+		outType: outCh.ElemType(),
 	}
 }
 
@@ -156,6 +187,7 @@ func AsTerminal(fun TerminalFunc) *Terminal {
 		inputs: connect.NewJoiner(inCh, chBufLen),
 		fun:    fn,
 		done:   make(chan struct{}),
+		inType: inCh.ElemType(),
 	}
 }
 

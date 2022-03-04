@@ -2,6 +2,7 @@ package node
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -58,6 +59,30 @@ func TestBasicGraph(t *testing.T) {
 		"odd: 7":  {},
 		"even: 8": {},
 	}, collected)
+}
+
+func TestTypeCapture(t *testing.T) {
+	type testType struct {
+		foo string
+	}
+
+	start1 := AsInit(Counter(1, 3))
+	odds := AsMiddle(OddFilter)
+	oddsMsg := AsMiddle(Messager("odd"))
+	collector := AsTerminal(func(strs <-chan string) {})
+	testColl := AsMiddle(func(in <-chan testType, out chan<- []string) {})
+
+	// assert that init/output types have been properly collected
+	intType := reflect.TypeOf(1)
+	stringType := reflect.TypeOf("")
+	assert.Equal(t, intType, start1.OutType())
+	assert.Equal(t, intType, odds.InType())
+	assert.Equal(t, intType, odds.OutType())
+	assert.Equal(t, intType, oddsMsg.InType())
+	assert.Equal(t, stringType, oddsMsg.OutType())
+	assert.Equal(t, stringType, collector.InType())
+	assert.Equal(t, reflect.TypeOf(testType{foo: ""}), testColl.InType())
+	assert.Equal(t, reflect.TypeOf([]string{}), testColl.OutType())
 }
 
 func TestGraphVerification(t *testing.T) {

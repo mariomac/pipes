@@ -33,7 +33,7 @@ func (fn *Function) AssertNumberOfArguments(num int) {
 	}
 }
 
-// ArgChannelType returns the element type of the channel in the numbered argumment.
+// ArgChannelType returns the type of the channel in the numbered argumment.
 // It panics if the argument in that position is not a channel
 func (fn *Function) ArgChannelType(argNum int) ChannelType {
 	ftype := typeOf(fn)

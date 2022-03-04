@@ -37,3 +37,7 @@ func (ch *ChannelType) AssertCanSendTo(dst ChannelType) {
 		panic(fmt.Sprintf("%s can't send data to %s", ch.inner, dst.inner))
 	}
 }
+
+func (ch ChannelType) ElemType() reflect.Type {
+	return ch.inner.Elem()
+}
