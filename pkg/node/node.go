@@ -4,11 +4,9 @@
 package node
 
 import (
-	"fmt"
 	"reflect"
 
 	"github.com/mariomac/pipes/pkg/internal/connect"
-	"github.com/mariomac/pipes/pkg/internal/refl"
 )
 
 // todo: make it configurable
@@ -16,42 +14,32 @@ const chBufLen = 20
 
 // InitFunc is a function that receives a writable channel as unique argument, and sends
 // value to that channel during an indefinite amount of time.
-// TODO: with Go 1.18, this will be
-// type InitFunc[OUT any] func(out chan<- OUT)
-type InitFunc interface{}
+type InitFunc[OUT any] func(out chan<- OUT)
 
 // MiddleFunc is a function that receives a readable channel as first argument,
 // and a writable channel as second argument.
 // It must process the inputs from the input channel until it's closed.
-// TODO: with Go 1.18, this will be
-// type MiddleFunc[IN, OUT any] func(in <-chan IN, out chan<- OUT)
-type MiddleFunc interface{}
+type MiddleFunc[IN, OUT any] func(in <-chan IN, out chan<- OUT)
 
 // TerminalFunc is a function that receives a readable channel as unique argument.
 // It must process the inputs from the input channel until it's closed.
-// TODO: with Go 1.18, this will be
-// type TerminalFunc[IN any] func(out <-chan IN)
-type TerminalFunc interface{}
+type TerminalFunc[IN any] func(out <-chan IN)
 
 // Sender is any node that can send data to another node: node.Init and node.Middle
-type Sender interface {
+type Sender[OUT any] interface {
 	// SendsTo connect a sender with a group of receivers
-	SendsTo(...Receiver)
+	SendsTo(...Receiver[OUT])
 	// OutType returns the inner type of the Sender's output channel
 	OutType() reflect.Type
 }
 
 // Receiver is any node that can receive data from another node: node.Middle and node.Terminal
-type Receiver interface {
-	startable
-	joiner() *connect.Joiner
-	// InType returns the inner type of the Receiver's input channel
-	InType() reflect.Type
-}
-
-type startable interface {
+type Receiver[IN any] interface {
 	isStarted() bool
 	start()
+	joiner() *connect.Joiner[IN]
+	// InType returns the inner type of the Receiver's input channel
+	InType() reflect.Type
 }
 
 // Init nodes are the starting points of a graph. This is, all the nodes that bring information
@@ -59,69 +47,69 @@ type startable interface {
 // external source like a Web Service.
 // A graph must have at least one Init node.
 // An Init node must have at least one output node.
-type Init struct {
-	outs    []Receiver
-	fun     refl.Function
+type Init[OUT any] struct {
+	outs []Receiver[OUT]
+	fun  InitFunc[OUT]
+	// todo: maybe this is not needed now that we have generics
 	outType reflect.Type
 }
 
-func (s *Init) SendsTo(outputs ...Receiver) {
-	assertChannelsCompatibility(s.fun.ArgChannelType(0), outputs)
+func (s *Init[OUT]) SendsTo(outputs ...Receiver[OUT]) {
+	//assertChannelsCompatibility(s.fun.ArgChannelType(0), outputs)
 	s.outs = append(s.outs, outputs...)
 }
 
-func (s *Init) OutType() reflect.Type {
+func (s *Init[OUT]) OutType() reflect.Type {
 	return s.outType
 }
 
 // Middle is any intermediate node that receives data from another node, processes/filters it,
 // and forwards the data to another node.
 // An Middle node must have at least one output node.
-type Middle struct {
-	outs    []Receiver
-	inputs  connect.Joiner
+type Middle[IN, OUT any] struct {
+	outs    []Receiver[OUT]
+	inputs  connect.Joiner[IN]
 	started bool
-	fun     refl.Function
+	fun     MiddleFunc[IN, OUT]
 	outType reflect.Type
 	inType  reflect.Type
 }
 
-func (i *Middle) joiner() *connect.Joiner {
+func (i *Middle[IN, OUT]) joiner() *connect.Joiner[IN] {
 	return &i.inputs
 }
 
-func (i *Middle) isStarted() bool {
+func (i *Middle[IN, OUT]) isStarted() bool {
 	return i.started
 }
 
-func (s *Middle) SendsTo(outputs ...Receiver) {
-	assertChannelsCompatibility(s.fun.ArgChannelType(1), outputs)
+func (s *Middle[IN, OUT]) SendsTo(outputs ...Receiver[OUT]) {
 	s.outs = append(s.outs, outputs...)
 }
 
-func (m *Middle) OutType() reflect.Type {
+func (m *Middle[IN, OUT]) OutType() reflect.Type {
 	return m.outType
 }
 
-func (m *Middle) InType() reflect.Type {
+func (m *Middle[IN, OUT]) InType() reflect.Type {
 	return m.inType
 }
 
 // Terminal is any node that receives data from another node and does not forward it to another node,
 // but can process it and send the results to outside the graph (e.g. memory, storage, web...)
-type Terminal struct {
-	inputs  connect.Joiner
+type Terminal[IN any] struct {
+	inputs  connect.Joiner[IN]
 	started bool
-	fun     refl.Function
+	fun     TerminalFunc[IN]
 	done    chan struct{}
 	inType  reflect.Type
 }
 
-func (i *Terminal) joiner() *connect.Joiner {
+func (i *Terminal[IN]) joiner() *connect.Joiner[IN] {
 	return &i.inputs
 }
 
-func (t *Terminal) isStarted() bool {
+func (t *Terminal[IN]) isStarted() bool {
 	return t.started
 }
 
@@ -129,73 +117,54 @@ func (t *Terminal) isStarted() bool {
 // is, when all its inputs have been also closed. Waiting for all the Terminal nodes to finish
 // allows blocking the execution until all the data in the graph has been processed and all the
 // previous stages have ended
-func (t *Terminal) Done() <-chan struct{} {
+func (t *Terminal[IN]) Done() <-chan struct{} {
 	return t.done
 }
 
-func (m *Terminal) InType() reflect.Type {
+func (m *Terminal[IN]) InType() reflect.Type {
 	return m.inType
 }
 
 // AsInit wraps an InitFunc into an Init node. It panics if the InitFunc does not follow the
 // func(chan<-) signature.
-func AsInit(fun InitFunc) *Init {
-	fn := refl.WrapFunction(fun)
-	fn.AssertNumberOfArguments(1)
-	if !fn.ArgChannelType(0).CanSend() {
-		panic(fn.String() + " first argument should be a writable channel")
-	}
-	return &Init{
-		fun:     fn,
-		outType: fn.ArgChannelType(0).ElemType(),
+func AsInit[OUT any](fun InitFunc[OUT]) *Init[OUT] {
+	var out OUT
+	return &Init[OUT]{
+		fun:     fun,
+		outType: reflect.TypeOf(out),
 	}
 }
 
 // AsMiddle wraps an MiddleFunc into an Middle node.
 // It panics if the MiddleFunc does not follow the func(<-chan,chan<-) signature.
-func AsMiddle(fun MiddleFunc) *Middle {
-	fn := refl.WrapFunction(fun)
-	// check that the arguments are a read channel and a write channel
-	fn.AssertNumberOfArguments(2)
-	inCh := fn.ArgChannelType(0)
-	if !inCh.CanReceive() {
-		panic(fn.String() + " first argument should be a readable channel")
-	}
-	outCh := fn.ArgChannelType(1)
-	if !outCh.CanSend() {
-		panic(fn.String() + " second argument should be a writable channel")
-	}
-	return &Middle{
-		inputs:  connect.NewJoiner(inCh, chBufLen),
-		fun:     fn,
-		inType:  inCh.ElemType(),
-		outType: outCh.ElemType(),
+func AsMiddle[IN, OUT any](fun MiddleFunc[IN, OUT]) *Middle[IN, OUT] {
+	var in IN
+	var out OUT
+	return &Middle[IN, OUT]{
+		inputs:  connect.NewJoiner[IN](chBufLen),
+		fun:     fun,
+		inType:  reflect.TypeOf(in),
+		outType: reflect.TypeOf(out),
 	}
 }
 
 // AsTerminal wraps a TerminalFunc into a Terminal node.
 // It panics if the TerminalFunc does not follow the func(<-chan) signature.
-func AsTerminal(fun TerminalFunc) *Terminal {
-	fn := refl.WrapFunction(fun)
-	// check that the arguments are only a read channel
-	fn.AssertNumberOfArguments(1)
-	inCh := fn.ArgChannelType(0)
-	if !inCh.CanReceive() {
-		panic(fn.String() + " first argument should be a readable channel")
-	}
-	return &Terminal{
-		inputs: connect.NewJoiner(inCh, chBufLen),
-		fun:    fn,
+func AsTerminal[IN any](fun TerminalFunc[IN]) *Terminal[IN] {
+	var i IN
+	return &Terminal[IN]{
+		inputs: connect.NewJoiner[IN](chBufLen),
+		fun:    fun,
 		done:   make(chan struct{}),
-		inType: inCh.ElemType(),
+		inType: reflect.TypeOf(i),
 	}
 }
 
-func (i *Init) Start() {
+func (i *Init[OUT]) Start() {
 	if len(i.outs) == 0 {
 		panic("Init node should have outputs")
 	}
-	joiners := make([]*connect.Joiner, 0, len(i.outs))
+	joiners := make([]*connect.Joiner[OUT], 0, len(i.outs))
 	for _, out := range i.outs {
 		joiners = append(joiners, out.joiner())
 		if !out.isStarted() {
@@ -203,15 +172,18 @@ func (i *Init) Start() {
 		}
 	}
 	forker := connect.Fork(joiners...)
-	i.fun.RunAsStartGoroutine(forker.Sender(), forker.Close)
+	go func() {
+		i.fun(forker.Sender())
+		forker.Close()
+	}()
 }
 
-func (i *Middle) start() {
+func (i *Middle[IN, OUT]) start() {
 	if len(i.outs) == 0 {
 		panic("Middle node should have outputs")
 	}
 	i.started = true
-	joiners := make([]*connect.Joiner, 0, len(i.outs))
+	joiners := make([]*connect.Joiner[OUT], 0, len(i.outs))
 	for _, out := range i.outs {
 		joiners = append(joiners, out.joiner())
 		if !out.isStarted() {
@@ -219,28 +191,16 @@ func (i *Middle) start() {
 		}
 	}
 	forker := connect.Fork(joiners...)
-	i.fun.RunAsMiddleGoroutine(
-		i.inputs.Receiver(),
-		forker.Sender(),
-		forker.Close)
+	go func() {
+		i.fun(i.inputs.Receiver(), forker.Sender())
+		forker.Close()
+	}()
 }
 
-func (t *Terminal) start() {
+func (t *Terminal[IN]) start() {
 	t.started = true
-	t.fun.RunAsEndGoroutine(t.inputs.Receiver(), func() {
+	go func() {
+		t.fun(t.inputs.Receiver())
 		close(t.done)
-	})
-}
-
-func assertChannelsCompatibility(srcInputType refl.ChannelType, outputs []Receiver) {
-	for _, out := range outputs {
-		switch t := out.(type) {
-		case *Middle:
-			srcInputType.AssertCanSendTo(t.fun.ArgChannelType(0))
-		case *Terminal:
-			srcInputType.AssertCanSendTo(t.fun.ArgChannelType(0))
-		default:
-			panic(fmt.Sprintf("unknown Receiver implementor %T. This is a bug! fix it", out))
-		}
-	}
+	}()
 }
