@@ -48,9 +48,8 @@ type Receiver[IN any] interface {
 // A graph must have at least one Init node.
 // An Init node must have at least one output node.
 type Init[OUT any] struct {
-	outs []Receiver[OUT]
-	fun  InitFunc[OUT]
-	// todo: maybe this is not needed now that we have generics
+	outs    []Receiver[OUT]
+	fun     InitFunc[OUT]
 	outType reflect.Type
 }
 
@@ -59,6 +58,7 @@ func (s *Init[OUT]) SendsTo(outputs ...Receiver[OUT]) {
 	s.outs = append(s.outs, outputs...)
 }
 
+// OutType is deprecated. It will be removed in future versions.
 func (s *Init[OUT]) OutType() reflect.Type {
 	return s.outType
 }
@@ -125,8 +125,7 @@ func (m *Terminal[IN]) InType() reflect.Type {
 	return m.inType
 }
 
-// AsInit wraps an InitFunc into an Init node. It panics if the InitFunc does not follow the
-// func(chan<-) signature.
+// AsInit wraps an InitFunc into an Init node.
 func AsInit[OUT any](fun InitFunc[OUT]) *Init[OUT] {
 	var out OUT
 	return &Init[OUT]{
@@ -136,7 +135,6 @@ func AsInit[OUT any](fun InitFunc[OUT]) *Init[OUT] {
 }
 
 // AsMiddle wraps an MiddleFunc into an Middle node.
-// It panics if the MiddleFunc does not follow the func(<-chan,chan<-) signature.
 func AsMiddle[IN, OUT any](fun MiddleFunc[IN, OUT]) *Middle[IN, OUT] {
 	var in IN
 	var out OUT
@@ -149,7 +147,6 @@ func AsMiddle[IN, OUT any](fun MiddleFunc[IN, OUT]) *Middle[IN, OUT] {
 }
 
 // AsTerminal wraps a TerminalFunc into a Terminal node.
-// It panics if the TerminalFunc does not follow the func(<-chan) signature.
 func AsTerminal[IN any](fun TerminalFunc[IN]) *Terminal[IN] {
 	var i IN
 	return &Terminal[IN]{
