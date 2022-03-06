@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/netobserv/gopipes/pkg/node"
+	"github.com/mariomac/pipes/pkg/node"
 )
 
 func StartCounter(out chan<- int) {

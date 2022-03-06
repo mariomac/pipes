@@ -3,7 +3,7 @@ package connect
 import (
 	"sync/atomic"
 
-	"github.com/netobserv/gopipes/pkg/internal/refl"
+	"github.com/mariomac/pipes/pkg/internal/refl"
 )
 
 // Joiner provides shared access to the input channel of a node.

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/netobserv/gopipes/pkg/internal/connect"
-	"github.com/netobserv/gopipes/pkg/internal/refl"
+	"github.com/mariomac/pipes/pkg/internal/connect"
+	"github.com/mariomac/pipes/pkg/internal/refl"
 )
 
 // todo: make it configurable
