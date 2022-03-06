@@ -6,6 +6,8 @@ import (
 	"reflect"
 )
 
+// TODO: check which methods we can get rid now that we have generics
+
 // Function wraps a reflect.Value and provides some common reflective assertions about its type
 type Function reflect.Value
 

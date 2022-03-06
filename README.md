@@ -1,4 +1,4 @@
-# PIPES: Process In Pipeline-Embedded Stages
+# PIPES: Processing In Pipeline-Embedded Stages
 
 This is the upper-upstream fork version of the [Red Hat's & IBM Gopipes library](https://pkg.go.dev/github.com/netobserv/gopipes),
 where I plan to add experimental features that aren't related to any concrete product nor follow

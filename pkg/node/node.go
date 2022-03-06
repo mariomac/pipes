@@ -16,22 +16,16 @@ const chBufLen = 20
 
 // InitFunc is a function that receives a writable channel as unique argument, and sends
 // value to that channel during an indefinite amount of time.
-// TODO: with Go 1.18, this will be
-// type InitFunc[OUT any] func(out chan<- OUT)
-type InitFunc interface{}
+type InitFunc[OUT any] func(out chan<- OUT)
 
 // MiddleFunc is a function that receives a readable channel as first argument,
 // and a writable channel as second argument.
 // It must process the inputs from the input channel until it's closed.
-// TODO: with Go 1.18, this will be
-// type MiddleFunc[IN, OUT any] func(in <-chan IN, out chan<- OUT)
-type MiddleFunc interface{}
+type MiddleFunc[IN, OUT any] func(in <-chan IN, out chan<- OUT)
 
 // TerminalFunc is a function that receives a readable channel as unique argument.
 // It must process the inputs from the input channel until it's closed.
-// TODO: with Go 1.18, this will be
-// type TerminalFunc[IN any] func(out <-chan IN)
-type TerminalFunc interface{}
+type TerminalFunc[IN any] func(out <-chan IN)
 
 // Sender is any node that can send data to another node: node.Init and node.Middle
 type Sender interface {
@@ -60,8 +54,9 @@ type startable interface {
 // A graph must have at least one Init node.
 // An Init node must have at least one output node.
 type Init struct {
-	outs    []Receiver
-	fun     refl.Function
+	outs []Receiver
+	fun  refl.Function
+	// todo: maybe this is not needed now that we have generics
 	outType reflect.Type
 }
 
@@ -139,8 +134,8 @@ func (m *Terminal) InType() reflect.Type {
 
 // AsInit wraps an InitFunc into an Init node. It panics if the InitFunc does not follow the
 // func(chan<-) signature.
-func AsInit(fun InitFunc) *Init {
-	fn := refl.WrapFunction(fun)
+func AsInit[OUT any](fun InitFunc[OUT]) *Init {
+	fn := refl.WrapFunction(fun) // todo: no need for this
 	fn.AssertNumberOfArguments(1)
 	if !fn.ArgChannelType(0).CanSend() {
 		panic(fn.String() + " first argument should be a writable channel")
@@ -153,7 +148,7 @@ func AsInit(fun InitFunc) *Init {
 
 // AsMiddle wraps an MiddleFunc into an Middle node.
 // It panics if the MiddleFunc does not follow the func(<-chan,chan<-) signature.
-func AsMiddle(fun MiddleFunc) *Middle {
+func AsMiddle[IN, OUT any](fun MiddleFunc[IN, OUT]) *Middle {
 	fn := refl.WrapFunction(fun)
 	// check that the arguments are a read channel and a write channel
 	fn.AssertNumberOfArguments(2)
@@ -175,7 +170,7 @@ func AsMiddle(fun MiddleFunc) *Middle {
 
 // AsTerminal wraps a TerminalFunc into a Terminal node.
 // It panics if the TerminalFunc does not follow the func(<-chan) signature.
-func AsTerminal(fun TerminalFunc) *Terminal {
+func AsTerminal[IN any](fun TerminalFunc[IN]) *Terminal {
 	fn := refl.WrapFunction(fun)
 	// check that the arguments are only a read channel
 	fn.AssertNumberOfArguments(1)
