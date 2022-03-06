@@ -85,26 +85,6 @@ func TestTypeCapture(t *testing.T) {
 	assert.Equal(t, reflect.TypeOf([]string{}), testColl.OutType())
 }
 
-func TestGraphVerification(t *testing.T) {
-	assert.Panics(t, func() {
-		p := AsInit(Counter(1, 2))
-		p.SendsTo(AsMiddle(func(in <-chan string, out chan<- string) {}))
-	}, "must panic if the input of a middle node does not match the type of the previous inner node")
-	assert.Panics(t, func() {
-		p := AsInit(Counter(1, 2))
-		p.SendsTo(AsTerminal(func(in <-chan string) {}))
-	}, "must panic if the input of a terminal node does not match the type of the previous inner node")
-	assert.Panics(t, func() {
-		m := AsMiddle(Messager("boom"))
-		m.SendsTo(AsMiddle(OddFilter))
-	}, "must panic if the input of a middle node does not match the type of the previous middle node")
-	assert.Panics(t, func() {
-		m := AsMiddle(OddFilter)
-		m.SendsTo(AsTerminal(func(in <-chan string) {}))
-	}, "must panic if the input of a terminal node does not match the type of the previous middle node")
-
-}
-
 func Counter(from, to int) func(out chan<- int) {
 	return func(out chan<- int) {
 		for i := from; i <= to; i++ {
