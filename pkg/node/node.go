@@ -7,7 +7,6 @@ import (
 	"reflect"
 
 	"github.com/mariomac/pipes/pkg/internal/connect"
-	"github.com/mariomac/pipes/pkg/internal/refl"
 )
 
 // todo: make it configurable
@@ -38,7 +37,7 @@ type Sender[OUT any] interface {
 type Receiver[IN any] interface {
 	isStarted() bool
 	start()
-	joiner() *connect.Joiner
+	joiner() *connect.Joiner[IN]
 	// InType returns the inner type of the Receiver's input channel
 	InType() reflect.Type
 }
@@ -50,7 +49,7 @@ type Receiver[IN any] interface {
 // An Init node must have at least one output node.
 type Init[OUT any] struct {
 	outs []Receiver[OUT]
-	fun  refl.Function
+	fun  InitFunc[OUT]
 	// todo: maybe this is not needed now that we have generics
 	outType reflect.Type
 }
@@ -69,14 +68,14 @@ func (s *Init[OUT]) OutType() reflect.Type {
 // An Middle node must have at least one output node.
 type Middle[IN, OUT any] struct {
 	outs    []Receiver[OUT]
-	inputs  connect.Joiner
+	inputs  connect.Joiner[IN]
 	started bool
-	fun     refl.Function
+	fun     MiddleFunc[IN, OUT]
 	outType reflect.Type
 	inType  reflect.Type
 }
 
-func (i *Middle[IN, OUT]) joiner() *connect.Joiner {
+func (i *Middle[IN, OUT]) joiner() *connect.Joiner[IN] {
 	return &i.inputs
 }
 
@@ -99,14 +98,14 @@ func (m *Middle[IN, OUT]) InType() reflect.Type {
 // Terminal is any node that receives data from another node and does not forward it to another node,
 // but can process it and send the results to outside the graph (e.g. memory, storage, web...)
 type Terminal[IN any] struct {
-	inputs  connect.Joiner
+	inputs  connect.Joiner[IN]
 	started bool
-	fun     refl.Function
+	fun     TerminalFunc[IN]
 	done    chan struct{}
 	inType  reflect.Type
 }
 
-func (i *Terminal[IN]) joiner() *connect.Joiner {
+func (i *Terminal[IN]) joiner() *connect.Joiner[IN] {
 	return &i.inputs
 }
 
@@ -129,54 +128,35 @@ func (m *Terminal[IN]) InType() reflect.Type {
 // AsInit wraps an InitFunc into an Init node. It panics if the InitFunc does not follow the
 // func(chan<-) signature.
 func AsInit[OUT any](fun InitFunc[OUT]) *Init[OUT] {
-	fn := refl.WrapFunction(fun) // todo: no need for this
-	fn.AssertNumberOfArguments(1)
-	if !fn.ArgChannelType(0).CanSend() {
-		panic(fn.String() + " first argument should be a writable channel")
-	}
+	var out OUT
 	return &Init[OUT]{
-		fun:     fn,
-		outType: fn.ArgChannelType(0).ElemType(),
+		fun:     fun,
+		outType: reflect.TypeOf(out),
 	}
 }
 
 // AsMiddle wraps an MiddleFunc into an Middle node.
 // It panics if the MiddleFunc does not follow the func(<-chan,chan<-) signature.
 func AsMiddle[IN, OUT any](fun MiddleFunc[IN, OUT]) *Middle[IN, OUT] {
-	fn := refl.WrapFunction(fun)
-	// check that the arguments are a read channel and a write channel
-	fn.AssertNumberOfArguments(2)
-	inCh := fn.ArgChannelType(0)
-	if !inCh.CanReceive() {
-		panic(fn.String() + " first argument should be a readable channel")
-	}
-	outCh := fn.ArgChannelType(1)
-	if !outCh.CanSend() {
-		panic(fn.String() + " second argument should be a writable channel")
-	}
+	var in IN
+	var out OUT
 	return &Middle[IN, OUT]{
-		inputs:  connect.NewJoiner(inCh, chBufLen),
-		fun:     fn,
-		inType:  inCh.ElemType(),
-		outType: outCh.ElemType(),
+		inputs:  connect.NewJoiner[IN](chBufLen),
+		fun:     fun,
+		inType:  reflect.TypeOf(in),
+		outType: reflect.TypeOf(out),
 	}
 }
 
 // AsTerminal wraps a TerminalFunc into a Terminal node.
 // It panics if the TerminalFunc does not follow the func(<-chan) signature.
 func AsTerminal[IN any](fun TerminalFunc[IN]) *Terminal[IN] {
-	fn := refl.WrapFunction(fun)
-	// check that the arguments are only a read channel
-	fn.AssertNumberOfArguments(1)
-	inCh := fn.ArgChannelType(0)
-	if !inCh.CanReceive() {
-		panic(fn.String() + " first argument should be a readable channel")
-	}
+	var i IN
 	return &Terminal[IN]{
-		inputs: connect.NewJoiner(inCh, chBufLen),
-		fun:    fn,
+		inputs: connect.NewJoiner[IN](chBufLen),
+		fun:    fun,
 		done:   make(chan struct{}),
-		inType: inCh.ElemType(),
+		inType: reflect.TypeOf(i),
 	}
 }
 
@@ -184,7 +164,7 @@ func (i *Init[OUT]) Start() {
 	if len(i.outs) == 0 {
 		panic("Init node should have outputs")
 	}
-	joiners := make([]*connect.Joiner, 0, len(i.outs))
+	joiners := make([]*connect.Joiner[OUT], 0, len(i.outs))
 	for _, out := range i.outs {
 		joiners = append(joiners, out.joiner())
 		if !out.isStarted() {
@@ -192,7 +172,10 @@ func (i *Init[OUT]) Start() {
 		}
 	}
 	forker := connect.Fork(joiners...)
-	i.fun.RunAsStartGoroutine(forker.Sender(), forker.Close)
+	go func() {
+		i.fun(forker.Sender())
+		forker.Close()
+	}()
 }
 
 func (i *Middle[IN, OUT]) start() {
@@ -200,7 +183,7 @@ func (i *Middle[IN, OUT]) start() {
 		panic("Middle node should have outputs")
 	}
 	i.started = true
-	joiners := make([]*connect.Joiner, 0, len(i.outs))
+	joiners := make([]*connect.Joiner[OUT], 0, len(i.outs))
 	for _, out := range i.outs {
 		joiners = append(joiners, out.joiner())
 		if !out.isStarted() {
@@ -208,15 +191,16 @@ func (i *Middle[IN, OUT]) start() {
 		}
 	}
 	forker := connect.Fork(joiners...)
-	i.fun.RunAsMiddleGoroutine(
-		i.inputs.Receiver(),
-		forker.Sender(),
-		forker.Close)
+	go func() {
+		i.fun(i.inputs.Receiver(), forker.Sender())
+		forker.Close()
+	}()
 }
 
 func (t *Terminal[IN]) start() {
 	t.started = true
-	t.fun.RunAsEndGoroutine(t.inputs.Receiver(), func() {
+	go func() {
+		t.fun(t.inputs.Receiver())
 		close(t.done)
-	})
+	}()
 }
