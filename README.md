@@ -14,11 +14,11 @@ This library allows wrapping functions within Nodes of a graph. In order to pass
 the nodes, each wrapped function must receive, as arguments, an input channel, an output channel,
 or both.
 
-It has two usable API layers: the **low-level** API, where you manually instantiate and wire every
-node; and the **high-level** API, that allows you providing a predefined set of nodes that are
+It has two usable API layers: the **node** API (low-level), where you manually instantiate and wire every
+node; and the **graph** API (high-level), that allows you providing a predefined set of nodes that are
 automatically wired via configuration file.
 
-## Low-level API
+## Node low-level API
 
 There are three types of nodes:
 
@@ -32,7 +32,7 @@ There are three types of nodes:
   another node, but can process it and send the results to outside the graph
   (e.g. memory, storage, web...)
 
-## Example pipeline for the Low-Level API
+## Example pipeline for the node API
 
 The following pipeline has two Start nodes that send the data to two destination Middle
 nodes (`odds` and `evens`). From there, the data follows their own branches until they
@@ -94,6 +94,6 @@ odd number: 887
 even number: 4
 ```
 
-## High-level API
+## Graph high-level API
 
 TBD

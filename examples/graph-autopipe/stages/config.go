@@ -1,4 +1,4 @@
-package config
+package stages
 
 import (
 	"io"
@@ -11,10 +11,10 @@ import (
 )
 
 type PipeConfig struct {
-	Http    []stage.Http    `hcl:"http,block"`
-	StdOut  []stage.Stdout  `hcl:"stdout,block"`
-	Deleter []stage.Deleter `hcl:"deleter,block"`
-	Connect Connections     `hcl:"connect"`
+	Http    []Http      `hcl:"http,block"`
+	StdOut  []Stdout    `hcl:"stdout,block"`
+	Deleter []Deleter   `hcl:"deleter,block"`
+	Connect Connections `hcl:"connect"`
 }
 
 // Connections key: name of the source node. Value: array of destination nodes.
@@ -33,17 +33,17 @@ func ReadConfig(in io.Reader) (PipeConfig, error) {
 func ApplyConfig(cfg *PipeConfig, builder *graph.Builder) {
 	// TODO: find a better way to configure from HCL without having to iterate all the stage types
 	for _, stg := range cfg.StdOut {
-		if err := graph.InstantiateExport[stage.Stdout, string](builder, stage.Name(stg.Name), stage.StdOutExportProvider.StageType, stg); err != nil {
+		if err := graph.InstantiateExport[Stdout, string](builder, stage.Name(stg.Name), StdOutExportProvider.StageType, stg); err != nil {
 			logrus.WithError(err).WithField("config", stg).Fatal("can't instantiate node")
 		}
 	}
 	for _, stg := range cfg.Http {
-		if err := graph.InstantiateIngest[stage.Http, []byte](builder, stage.Name(stg.Name), stage.HttpIngestProvider.StageType, stg); err != nil {
+		if err := graph.InstantiateIngest[Http, []byte](builder, stage.Name(stg.Name), HttpIngestProvider.StageType, stg); err != nil {
 			logrus.WithError(err).WithField("config", stg).Fatal("can't instantiate node")
 		}
 	}
 	for _, stg := range cfg.Deleter {
-		if err := graph.InstantiateTransform[stage.Deleter, map[string]any, map[string]any](builder, stage.Name(stg.Name), stage.FieldDeleterTransformProvider.StageType, stg); err != nil {
+		if err := graph.InstantiateTransform[Deleter, map[string]any, map[string]any](builder, stage.Name(stg.Name), FieldDeleterTransformProvider.StageType, stg); err != nil {
 			logrus.WithError(err).WithField("config", stg).Fatal("can't instantiate node")
 		}
 	}

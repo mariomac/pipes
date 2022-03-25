@@ -5,9 +5,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/mariomac/pipes/pkg/config"
+	"github.com/mariomac/pipes/examples/graph-autopipe/stages"
 	"github.com/mariomac/pipes/pkg/graph"
-	"github.com/mariomac/pipes/pkg/graph/stage"
 )
 
 var graphFile = flag.String("graph", "", "HCL graph file")
@@ -21,25 +20,25 @@ func main() {
 	builder := graph.NewBuilder()
 
 	// register codecs for automatic transformation between incompatible stages
-	graph.RegisterCodec(builder, stage.BytesToStringCodec)
-	graph.RegisterCodec(builder, stage.JSONBytesToMapCodec)
-	graph.RegisterCodec(builder, stage.MapToStringCodec)
+	graph.RegisterCodec(builder, stages.BytesToStringCodec)
+	graph.RegisterCodec(builder, stages.JSONBytesToMapCodec)
+	graph.RegisterCodec(builder, stages.MapToStringCodec)
 
 	// register the pipeline stages that are actually doing something
-	graph.RegisterIngest(builder, stage.HttpIngestProvider)
-	graph.RegisterTransform(builder, stage.FieldDeleterTransformProvider)
-	graph.RegisterExport(builder, stage.StdOutExportProvider)
+	graph.RegisterIngest(builder, stages.HttpIngestProvider)
+	graph.RegisterTransform(builder, stages.FieldDeleterTransformProvider)
+	graph.RegisterExport(builder, stages.StdOutExportProvider)
 
 	// Parse config and build graph from it
 	grp, err := os.Open(*graphFile)
 	if err != nil {
 		log.Printf("can't load configuration: %v", err)
 	}
-	cfg, err := config.ReadConfig(grp)
+	cfg, err := stages.ReadConfig(grp)
 	if err != nil {
 		log.Printf("can't instantiate configuration: %v", err)
 	}
-	config.ApplyConfig(&cfg, builder)
+	stages.ApplyConfig(&cfg, builder)
 
 	// build and run the graph
 	b := builder.Build()

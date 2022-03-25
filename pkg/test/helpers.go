@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// AsyncWaiter is merges a waitgroup and a channel to provide syntactic sugar in asnynchronous
+// AsyncWaiter merges a waitgroup and a channel to provide syntactic sugar in asnynchronous
 // tests, making them failing if the waitGroup does not reach the 0 status after a given timeout.
 type AsyncWaiter sync.WaitGroup
 

@@ -1,34 +1,14 @@
-package stage
+package stages
 
 import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
 
+	"github.com/mariomac/pipes/pkg/graph/stage"
 	"github.com/mariomac/pipes/pkg/node"
 	"github.com/sirupsen/logrus"
 )
-
-type Type string
-type Name string
-
-// A provider wraps an instantiation function that, given a configuration argument, returns a
-// node with a processing function.
-
-type StartProvider[CFG, O any] struct {
-	StageType    Type
-	Instantiator func(CFG) *node.Start[O]
-}
-
-type MiddleProvider[CFG, I, O any] struct {
-	StageType    Type
-	Instantiator func(CFG) *node.Middle[I, O]
-}
-
-type TerminalProvider[CFG, I any] struct {
-	StageType    Type
-	Instantiator func(CFG) *node.Terminal[I]
-}
 
 const defaultPort = 8080
 
@@ -39,7 +19,7 @@ type Http struct {
 
 // HttpIngestProvider listens for HTTP connections and forwards them. The instantiator
 // needs to receive a stage.Http instance.
-var HttpIngestProvider = StartProvider[Http, []byte]{
+var HttpIngestProvider = stage.StartProvider[Http, []byte]{
 	StageType: "http",
 	Instantiator: func(c Http) *node.Start[[]byte] {
 		port := c.Port
@@ -74,7 +54,7 @@ type Stdout struct {
 }
 
 // StdOutExportProvider receives any message and prints it, prepending a given message
-var StdOutExportProvider = TerminalProvider[Stdout, string]{
+var StdOutExportProvider = stage.TerminalProvider[Stdout, string]{
 	StageType: "stdout",
 	Instantiator: func(c Stdout) *node.Terminal[string] {
 		return node.AsTerminal(func(in <-chan string) {
@@ -91,7 +71,7 @@ type Deleter struct {
 }
 
 // FieldDeleterTransformProvider receives a map and removes the configured fields from it
-var FieldDeleterTransformProvider = MiddleProvider[Deleter, map[string]any, map[string]any]{
+var FieldDeleterTransformProvider = stage.MiddleProvider[Deleter, map[string]any, map[string]any]{
 	StageType: "deleter",
 	Instantiator: func(c Deleter) *node.Middle[map[string]any, map[string]any] {
 		toDelete := map[string]struct{}{}
