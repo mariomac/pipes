@@ -63,42 +63,44 @@ func RegisterCodec[I, O any](nb *Builder, middleFunc node.MiddleFunc[I, O]) {
 	}
 }
 
-func RegisterIngest[O any](nb *Builder, b stage.IngestProvider[O]) {
+func RegisterIngest[CFG, O any](nb *Builder, b stage.IngestProvider[CFG, O]) {
 	nb.ingestBuilders[b.StageType] = b
 }
 
-func RegisterTransform[I, O any](nb *Builder, b stage.TransformProvider[I, O]) {
+func RegisterTransform[CFG, I, O any](nb *Builder, b stage.TransformProvider[CFG, I, O]) {
 	nb.transformBuilders[b.StageType] = b
 }
 
-func RegisterExport[I any](nb *Builder, b stage.ExportProvider[I]) {
+func RegisterExport[CFG, I any](nb *Builder, b stage.ExportProvider[CFG, I]) {
 	nb.exportBuilders[b.StageType] = b
 }
 
 // TODO: type name is redundant?
-func InstantiateIngest[O any](nb *Builder, n stage.Name, t stage.Type, args interface{}) error {
+func InstantiateIngest[CFG, O any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
 	if ib, ok := nb.ingestBuilders[t]; ok {
-		nb.ingests[n] = ib.(stage.IngestProvider[O]).Instantiator(args)
-		return nil
-	}
-	return fmt.Errorf("unknown node name %q for type %q", n, t)
-}
-func InstantiateTransform[I, O any](nb *Builder, n stage.Name, t stage.Type, args interface{}) error {
-	if tb, ok := nb.transformBuilders[t]; ok {
-		nb.transforms[n] = tb.(stage.TransformProvider[I, O]).Instantiator(args)
-		return nil
-	}
-	return fmt.Errorf("unknown node name %q for type %q", n, t)
-}
-func InstantiateExport[I any](nb *Builder, n stage.Name, t stage.Type, args interface{}) error {
-	if eb, ok := nb.exportBuilders[t]; ok {
-		nb.exports[n] = eb.(stage.ExportProvider[I]).Instantiator(args)
+		nb.ingests[n] = ib.(stage.IngestProvider[CFG, O]).Instantiator(args)
 		return nil
 	}
 	return fmt.Errorf("unknown node name %q for type %q", n, t)
 }
 
-func Connect(nb *Builder, src, dst stage.Name) error {
+func InstantiateTransform[CFG, I, O any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
+	if tb, ok := nb.transformBuilders[t]; ok {
+		nb.transforms[n] = tb.(stage.TransformProvider[CFG, I, O]).Instantiator(args)
+		return nil
+	}
+	return fmt.Errorf("unknown node name %q for type %q", n, t)
+}
+
+func InstantiateExport[CFG, I any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
+	if eb, ok := nb.exportBuilders[t]; ok {
+		nb.exports[n] = eb.(stage.ExportProvider[CFG, I]).Instantiator(args)
+		return nil
+	}
+	return fmt.Errorf("unknown node name %q for type %q", n, t)
+}
+
+func (nb *Builder) Connect(src, dst stage.Name) error {
 	// find source and destination stages
 	var srcNode outTyper
 	var ok bool

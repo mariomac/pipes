@@ -14,21 +14,20 @@ type Name string
 
 // A provider wraps an instantiation function that, given a configuration argument, returns a
 // node with a processing function.
-// If we implement this using Go 1.18 and generics, we could do the config argument as type safe.
 
-type IngestProvider[O any] struct {
+type IngestProvider[CFG, O any] struct {
 	StageType    Type
-	Instantiator func(interface{}) *node.Init[O]
+	Instantiator func(CFG) *node.Init[O]
 }
 
-type TransformProvider[I, O any] struct {
+type TransformProvider[CFG, I, O any] struct {
 	StageType    Type
-	Instantiator func(interface{}) *node.Middle[I, O]
+	Instantiator func(CFG) *node.Middle[I, O]
 }
 
-type ExportProvider[I any] struct {
+type ExportProvider[CFG, I any] struct {
 	StageType    Type
-	Instantiator func(interface{}) *node.Terminal[I]
+	Instantiator func(CFG) *node.Terminal[I]
 }
 
 const defaultPort = 8080
@@ -40,10 +39,9 @@ type Http struct {
 
 // HttpIngestProvider listens for HTTP connections and forwards them. The instantiator
 // needs to receive a stage.Http instance.
-var HttpIngestProvider = IngestProvider[[]byte]{
+var HttpIngestProvider = IngestProvider[Http, []byte]{
 	StageType: "http",
-	Instantiator: func(cfg interface{}) *node.Init[[]byte] {
-		c := cfg.(Http)
+	Instantiator: func(c Http) *node.Init[[]byte] {
 		port := c.Port
 		if port == 0 {
 			port = defaultPort
@@ -76,10 +74,9 @@ type Stdout struct {
 }
 
 // StdOutExportProvider receives any message and prints it, prepending a given message
-var StdOutExportProvider = ExportProvider[string]{
+var StdOutExportProvider = ExportProvider[Stdout, string]{
 	StageType: "stdout",
-	Instantiator: func(cfg interface{}) *node.Terminal[string] {
-		c := cfg.(Stdout)
+	Instantiator: func(c Stdout) *node.Terminal[string] {
 		return node.AsTerminal(func(in <-chan string) {
 			for s := range in {
 				fmt.Println(c.Prepend + s)
@@ -94,10 +91,9 @@ type Deleter struct {
 }
 
 // FieldDeleterTransformProvider receives a map and removes the configured fields from it
-var FieldDeleterTransformProvider = TransformProvider[map[string]any, map[string]any]{
+var FieldDeleterTransformProvider = TransformProvider[Deleter, map[string]any, map[string]any]{
 	StageType: "deleter",
-	Instantiator: func(cfg interface{}) *node.Middle[map[string]any, map[string]any] {
-		c := cfg.(Deleter)
+	Instantiator: func(c Deleter) *node.Middle[map[string]any, map[string]any] {
 		toDelete := map[string]struct{}{}
 		for _, f := range c.Fields {
 			toDelete[fmt.Sprint(f)] = struct{}{}
