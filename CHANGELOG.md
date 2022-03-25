@@ -3,7 +3,7 @@
 # v0.4.0
 
 * Breaking changes:
-    - `node.Init` renamed to `node.Starting`
+    - `node.Init` renamed to `node.Start`
 
 # v0.3.0
 

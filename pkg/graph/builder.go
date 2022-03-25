@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/mariomac/pipes/pkg/graph/stage"
 	"github.com/mariomac/pipes/pkg/node"
-	"github.com/mariomac/pipes/pkg/stage"
 )
 
 type codecKey struct {

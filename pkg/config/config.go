@@ -6,7 +6,7 @@ import (
 
 	"github.com/hashicorp/hcl/v2/hclsimple"
 	"github.com/mariomac/pipes/pkg/graph"
-	"github.com/mariomac/pipes/pkg/stage"
+	"github.com/mariomac/pipes/pkg/graph/stage"
 	"github.com/sirupsen/logrus"
 )
 

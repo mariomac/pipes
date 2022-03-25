@@ -7,7 +7,7 @@ import (
 
 	"github.com/mariomac/pipes/pkg/config"
 	"github.com/mariomac/pipes/pkg/graph"
-	"github.com/mariomac/pipes/pkg/stage"
+	"github.com/mariomac/pipes/pkg/graph/stage"
 )
 
 var graphFile = flag.String("graph", "", "HCL graph file")

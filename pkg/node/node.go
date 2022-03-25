@@ -6,7 +6,7 @@ package node
 import (
 	"reflect"
 
-	"github.com/mariomac/pipes/pkg/internal/connect"
+	"github.com/mariomac/pipes/pkg/node/internal/connect"
 )
 
 // TODO: OutType and InType methods are candidates for deprecation
