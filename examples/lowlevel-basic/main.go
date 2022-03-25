@@ -53,8 +53,8 @@ func Printer(in <-chan string) {
 }
 
 func main() {
-	start1 := node.AsInit(StartCounter)
-	start2 := node.AsInit(StartRandoms)
+	start1 := node.AsStart(StartCounter)
+	start2 := node.AsStart(StartRandoms)
 	odds := node.AsMiddle(OddFilter)
 	evens := node.AsMiddle(EvenFilter)
 	oddsMsg := node.AsMiddle(Messager("odd number"))

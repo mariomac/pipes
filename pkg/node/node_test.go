@@ -13,8 +13,8 @@ import (
 const timeout = 2 * time.Second
 
 func TestBasicGraph(t *testing.T) {
-	start1 := AsInit(Counter(1, 3))
-	start2 := AsInit(Counter(6, 8))
+	start1 := AsStart(Counter(1, 3))
+	start2 := AsStart(Counter(6, 8))
 	odds := AsMiddle(OddFilter)
 	evens := AsMiddle(EvenFilter)
 	oddsMsg := AsMiddle(Messager("odd"))
@@ -66,7 +66,7 @@ func TestTypeCapture(t *testing.T) {
 		foo string
 	}
 
-	start1 := AsInit(Counter(1, 3))
+	start1 := AsStart(Counter(1, 3))
 	odds := AsMiddle(OddFilter)
 	oddsMsg := AsMiddle(Messager("odd"))
 	collector := AsTerminal(func(strs <-chan string) {})
@@ -87,11 +87,11 @@ func TestTypeCapture(t *testing.T) {
 
 func TestConfigurationOptions_UnbufferedChannelCommunication(t *testing.T) {
 	graphIn, graphOut := make(chan int), make(chan int)
-	endInit, endMiddle, endTerm := make(chan struct{}), make(chan struct{}), make(chan struct{})
-	init := AsInit(func(out chan<- int) {
+	endStart, endMiddle, endTerm := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	init := AsStart(func(out chan<- int) {
 		n := <-graphIn
 		out <- n
-		close(endInit)
+		close(endStart)
 	})
 	middle := AsMiddle(func(in <-chan int, out chan<- int) {
 		n := <-in
@@ -111,7 +111,7 @@ func TestConfigurationOptions_UnbufferedChannelCommunication(t *testing.T) {
 	// Since the nodes are unbuffered, they are blocked and can't accept/process data until
 	// the last node exports it
 	select {
-	case <-endInit:
+	case <-endStart:
 		require.Fail(t, "expected that init node is still blocked")
 	default: //ok!
 	}
@@ -132,7 +132,7 @@ func TestConfigurationOptions_UnbufferedChannelCommunication(t *testing.T) {
 		require.Fail(t, "timeout while waiting for the terminal node to forward the data")
 	}
 	select {
-	case <-endInit: //ok!
+	case <-endStart: //ok!
 	case <-time.After(timeout):
 		require.Fail(t, "timeout while waiting for the init node to finish")
 	}
@@ -150,11 +150,11 @@ func TestConfigurationOptions_UnbufferedChannelCommunication(t *testing.T) {
 
 func TestConfigurationOptions_BufferedChannelCommunication(t *testing.T) {
 	graphIn, graphOut := make(chan int), make(chan int)
-	endInit, endMiddle, endTerm := make(chan struct{}), make(chan struct{}), make(chan struct{})
-	init := AsInit(func(out chan<- int) {
+	endStart, endMiddle, endTerm := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	init := AsStart(func(out chan<- int) {
 		n := <-graphIn
 		out <- n
-		close(endInit)
+		close(endStart)
 	})
 	middle := AsMiddle(func(in <-chan int, out chan<- int) {
 		n := <-in
@@ -175,7 +175,7 @@ func TestConfigurationOptions_BufferedChannelCommunication(t *testing.T) {
 	// node hasn't exported it
 
 	select {
-	case <-endInit: //ok!
+	case <-endStart: //ok!
 	case <-time.After(timeout):
 		require.Fail(t, "timeout while waiting for the init node to finish")
 	}

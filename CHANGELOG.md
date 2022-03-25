@@ -1,5 +1,10 @@
 # CHANGELOG
 
+# v0.4.0
+
+* Breaking changes:
+    - `node.Init` renamed to `node.Starting`
+
 # v0.3.0
 
 * Inter-node communication input channels are now unbuffered by default. To make them buffered,

@@ -46,7 +46,7 @@ func NewBuilder() *Builder {
 		ingestBuilders:    map[stage.Type]any{},        // stage.IngestProvider
 		transformBuilders: map[stage.Type]any{},        // stage.TransformProvider{},
 		exportBuilders:    map[stage.Type]any{},        // stage.ExportProvider{},
-		ingests:           map[stage.Name]outTyper{},   // *node.Init
+		ingests:           map[stage.Name]outTyper{},   // *node.Start
 		transforms:        map[stage.Name]inOutTyper{}, // *node.Middle
 		exports:           map[stage.Name]inTyper{},    // *node.Terminal
 		connects:          map[string][]string{},

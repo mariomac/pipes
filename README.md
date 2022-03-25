@@ -22,9 +22,9 @@ automatically wired via configuration file.
 
 There are three types of nodes:
 
-* **Init** node: each of the starting point of a graph. This is, all the nodes that bring information
+* **Starting** node: each of the starting point of a graph. This is, all the nodes that bring information
   from outside the graph: e.g. because they generate them or because they acquire them from an
-  external source like a Web Service. A graph must have at least one Init node. An Init node must 
+  external source like a Web Service. A graph must have at least one Start node. A Start node must 
   have at least one output node.
 * **Middle** node: any intermediate node that receives data from another node, processes/filters it,
   and forwards the data to another node. A Middle node must have at least one output node.
@@ -34,7 +34,7 @@ There are three types of nodes:
 
 ## Example pipeline for the Low-Level API
 
-The following pipeline has two Init nodes that send the data to two destination Middle
+The following pipeline has two Start nodes that send the data to two destination Middle
 nodes (`odds` and `evens`). From there, the data follows their own branches until they
 are eventually joined in the `printer` Terminal node.
 
@@ -42,9 +42,9 @@ Check the complete examples in the [examples/](./examples) folder).
 
 ```go
 func main() {
-	// Defining init, middle and terminal nodes that wrap some functions
-	start1 := node.AsInit(StartCounter)
-	start2 := node.AsInit(StartRandoms)
+	// Defining Start, middle and terminal nodes that wrap some functions
+	start1 := node.AsStart(StartCounter)
+	start2 := node.AsStart(StartRandoms)
 	odds := node.AsMiddle(OddFilter)
 	evens := node.AsMiddle(EvenFilter)
 	oddsMsg := node.AsMiddle(Messager("odd number"))
@@ -68,7 +68,7 @@ func main() {
 	oddsMsg.SendsTo(printer)
 	evensMsg.SendsTo(printer)
 
-	// all the Init nodes must be started to
+	// all the Start nodes must be started to
 	// start forwarding data to the rest of the graph
 	start1.Start()
 	start2.Start()

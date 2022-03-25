@@ -17,7 +17,7 @@ type Name string
 
 type IngestProvider[CFG, O any] struct {
 	StageType    Type
-	Instantiator func(CFG) *node.Init[O]
+	Instantiator func(CFG) *node.Start[O]
 }
 
 type TransformProvider[CFG, I, O any] struct {
@@ -41,13 +41,13 @@ type Http struct {
 // needs to receive a stage.Http instance.
 var HttpIngestProvider = IngestProvider[Http, []byte]{
 	StageType: "http",
-	Instantiator: func(c Http) *node.Init[[]byte] {
+	Instantiator: func(c Http) *node.Start[[]byte] {
 		port := c.Port
 		if port == 0 {
 			port = defaultPort
 		}
 		log := logrus.WithField("component", "HttpIngest")
-		return node.AsInit(func(out chan<- []byte) {
+		return node.AsStart(func(out chan<- []byte) {
 			err := http.ListenAndServe(fmt.Sprintf(":%d", port),
 				http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 					if request.Method != http.MethodPost {

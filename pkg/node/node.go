@@ -11,9 +11,9 @@ import (
 
 // TODO: OutType and InType methods are candidates for deprecation
 
-// InitFunc is a function that receives a writable channel as unique argument, and sends
+// StartFunc is a function that receives a writable channel as unique argument, and sends
 // value to that channel during an indefinite amount of time.
-type InitFunc[OUT any] func(out chan<- OUT)
+type StartFunc[OUT any] func(out chan<- OUT)
 
 // MiddleFunc is a function that receives a readable channel as first argument,
 // and a writable channel as second argument.
@@ -24,7 +24,7 @@ type MiddleFunc[IN, OUT any] func(in <-chan IN, out chan<- OUT)
 // It must process the inputs from the input channel until it's closed.
 type TerminalFunc[IN any] func(out <-chan IN)
 
-// Sender is any node that can send data to another node: node.Init and node.Middle
+// Sender is any node that can send data to another node: node.Start and node.Middle
 type Sender[OUT any] interface {
 	// SendsTo connect a sender with a group of receivers
 	SendsTo(...Receiver[OUT])
@@ -41,24 +41,24 @@ type Receiver[IN any] interface {
 	InType() reflect.Type
 }
 
-// Init nodes are the starting points of a graph. This is, all the nodes that bring information
+// Start nodes are the starting points of a graph. This is, all the nodes that bring information
 // from outside the graph: e.g. because they generate them or because they acquire them from an
 // external source like a Web Service.
-// A graph must have at least one Init node.
-// An Init node must have at least one output node.
-type Init[OUT any] struct {
+// A graph must have at least one Start node.
+// An Start node must have at least one output node.
+type Start[OUT any] struct {
 	outs    []Receiver[OUT]
-	fun     InitFunc[OUT]
+	fun     StartFunc[OUT]
 	outType reflect.Type
 }
 
-func (s *Init[OUT]) SendsTo(outputs ...Receiver[OUT]) {
+func (s *Start[OUT]) SendsTo(outputs ...Receiver[OUT]) {
 	//assertChannelsCompatibility(s.fun.ArgChannelType(0), outputs)
 	s.outs = append(s.outs, outputs...)
 }
 
 // OutType is deprecated. It will be removed in future versions.
-func (s *Init[OUT]) OutType() reflect.Type {
+func (s *Start[OUT]) OutType() reflect.Type {
 	return s.outType
 }
 
@@ -124,10 +124,10 @@ func (m *Terminal[IN]) InType() reflect.Type {
 	return m.inType
 }
 
-// AsInit wraps an InitFunc into an Init node.
-func AsInit[OUT any](fun InitFunc[OUT]) *Init[OUT] {
+// AsStart wraps an StartFunc into an Start node.
+func AsStart[OUT any](fun StartFunc[OUT]) *Start[OUT] {
 	var out OUT
-	return &Init[OUT]{
+	return &Start[OUT]{
 		fun:     fun,
 		outType: reflect.TypeOf(out),
 	}
@@ -158,9 +158,9 @@ func AsTerminal[IN any](fun TerminalFunc[IN], opts ...Option) *Terminal[IN] {
 	}
 }
 
-func (i *Init[OUT]) Start() {
+func (i *Start[OUT]) Start() {
 	if len(i.outs) == 0 {
-		panic("Init node should have outputs")
+		panic("Start node should have outputs")
 	}
 	joiners := make([]*connect.Joiner[OUT], 0, len(i.outs))
 	for _, out := range i.outs {
