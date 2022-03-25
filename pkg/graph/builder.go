@@ -30,9 +30,9 @@ type inOutTyper interface {
 // its stages given a name and a type, as well as connect them. If two connected stages have
 // incompatible types, it will insert a codec in between to translate between the stage types
 type Builder struct {
-	ingestBuilders    map[stage.Type]any
-	transformBuilders map[stage.Type]any
-	exportBuilders    map[stage.Type]any
+	startProviders    map[stage.Type]any
+	middleProviders   map[stage.Type]any
+	terminalProviders map[stage.Type]any
 	ingests           map[stage.Name]outTyper
 	transforms        map[stage.Name]inOutTyper
 	exports           map[stage.Name]inTyper
@@ -43,9 +43,9 @@ type Builder struct {
 func NewBuilder() *Builder {
 	return &Builder{
 		codecs:            map[codecKey][2]reflect.Value{},
-		ingestBuilders:    map[stage.Type]any{},        // stage.StartProvider
-		transformBuilders: map[stage.Type]any{},        // stage.MiddleProvider{},
-		exportBuilders:    map[stage.Type]any{},        // stage.TerminalProvider{},
+		startProviders:    map[stage.Type]any{},        // stage.StartProvider
+		middleProviders:   map[stage.Type]any{},        // stage.MiddleProvider{},
+		terminalProviders: map[stage.Type]any{},        // stage.TerminalProvider{},
 		ingests:           map[stage.Name]outTyper{},   // *node.Start
 		transforms:        map[stage.Name]inOutTyper{}, // *node.Middle
 		exports:           map[stage.Name]inTyper{},    // *node.Terminal
@@ -63,38 +63,37 @@ func RegisterCodec[I, O any](nb *Builder, middleFunc node.MiddleFunc[I, O]) {
 	}
 }
 
-func RegisterIngest[CFG, O any](nb *Builder, b stage.StartProvider[CFG, O]) {
-	nb.ingestBuilders[b.StageType] = b
+func RegisterStart[CFG, O any](nb *Builder, sType stage.Type, b stage.StartProvider[CFG, O]) {
+	nb.startProviders[sType] = b
 }
 
-func RegisterTransform[CFG, I, O any](nb *Builder, b stage.MiddleProvider[CFG, I, O]) {
-	nb.transformBuilders[b.StageType] = b
+func RegisterMiddle[CFG, I, O any](nb *Builder, sType stage.Type, b stage.MiddleProvider[CFG, I, O]) {
+	nb.middleProviders[sType] = b
 }
 
-func RegisterExport[CFG, I any](nb *Builder, b stage.TerminalProvider[CFG, I]) {
-	nb.exportBuilders[b.StageType] = b
+func RegisterExport[CFG, I any](nb *Builder, sType stage.Type, b stage.TerminalProvider[CFG, I]) {
+	nb.terminalProviders[sType] = b
 }
 
-// TODO: type name is redundant?
-func InstantiateIngest[CFG, O any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
-	if ib, ok := nb.ingestBuilders[t]; ok {
-		nb.ingests[n] = ib.(stage.StartProvider[CFG, O]).Instantiator(args)
+func NewStart[CFG, O any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
+	if ib, ok := nb.startProviders[t]; ok {
+		nb.ingests[n] = ib.(stage.StartProvider[CFG, O])(args)
 		return nil
 	}
 	return fmt.Errorf("unknown node name %q for type %q", n, t)
 }
 
-func InstantiateTransform[CFG, I, O any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
-	if tb, ok := nb.transformBuilders[t]; ok {
-		nb.transforms[n] = tb.(stage.MiddleProvider[CFG, I, O]).Instantiator(args)
+func NewMiddle[CFG, I, O any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
+	if tb, ok := nb.middleProviders[t]; ok {
+		nb.transforms[n] = tb.(stage.MiddleProvider[CFG, I, O])(args)
 		return nil
 	}
 	return fmt.Errorf("unknown node name %q for type %q", n, t)
 }
 
-func InstantiateExport[CFG, I any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
-	if eb, ok := nb.exportBuilders[t]; ok {
-		nb.exports[n] = eb.(stage.TerminalProvider[CFG, I]).Instantiator(args)
+func NewTerminal[CFG, I any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
+	if eb, ok := nb.terminalProviders[t]; ok {
+		nb.exports[n] = eb.(stage.TerminalProvider[CFG, I])(args)
 		return nil
 	}
 	return fmt.Errorf("unknown node name %q for type %q", n, t)

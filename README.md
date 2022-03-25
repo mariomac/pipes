@@ -16,7 +16,7 @@ or both.
 
 It has two usable API layers: the **node** API (low-level), where you manually instantiate and wire every
 node; and the **graph** API (high-level), that allows you providing a predefined set of nodes that are
-automatically wired via configuration file.
+automatically wired and simplifies the graph formation through configuration files.
 
 ## Node low-level API
 

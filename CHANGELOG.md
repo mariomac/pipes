@@ -2,6 +2,7 @@
 
 # v0.4.0
 
+* Autopiping high-level graph API
 * Breaking changes:
     - `node.Init` renamed to `node.Start`
 

@@ -25,9 +25,9 @@ func main() {
 	graph.RegisterCodec(builder, stages.MapToStringCodec)
 
 	// register the pipeline stages that are actually doing something
-	graph.RegisterIngest(builder, stages.HttpIngestProvider)
-	graph.RegisterTransform(builder, stages.FieldDeleterTransformProvider)
-	graph.RegisterExport(builder, stages.StdOutExportProvider)
+	graph.RegisterStart(builder, stages.HttpIngestStage, stages.HttpIngestProvider)
+	graph.RegisterMiddle(builder, stages.FieldDeleterStage, stages.FieldDeleterTransformProvider)
+	graph.RegisterExport(builder, stages.StdoutExportStage, stages.StdOutExportProvider)
 
 	// Parse config and build graph from it
 	grp, err := os.Open(*graphFile)
