@@ -30,6 +30,7 @@ func ReadConfig(in io.Reader) (PipeConfig, error) {
 	return pc, err
 }
 
+// ApplyConfig instantiates and configures the different pipeline stages according to the provided PipeConfig
 func ApplyConfig(cfg *PipeConfig, builder *graph.Builder) {
 	// TODO: find a better way to configure from HCL without having to iterate all the stage types
 	for _, stg := range cfg.StdOut {

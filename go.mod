@@ -6,7 +6,6 @@ require (
 	github.com/hashicorp/hcl/v2 v2.11.1
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
-	golang.org/x/exp v0.0.0-20220324144552-032f0433de08
 )
 
 require (

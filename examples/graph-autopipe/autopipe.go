@@ -19,15 +19,15 @@ func main() {
 	}
 	builder := graph.NewBuilder()
 
+	// register the pipeline stage types that the user could want to instantiate and wire in the configuration
+	graph.RegisterStart(builder, stages.HttpIngestStage, stages.HttpIngestProvider)
+	graph.RegisterMiddle(builder, stages.FieldDeleterStage, stages.FieldDeleterTransformProvider)
+	graph.RegisterExport(builder, stages.StdoutExportStage, stages.StdOutExportProvider)
+
 	// register codecs for automatic transformation between incompatible stages
 	graph.RegisterCodec(builder, stages.BytesToStringCodec)
 	graph.RegisterCodec(builder, stages.JSONBytesToMapCodec)
 	graph.RegisterCodec(builder, stages.MapToStringCodec)
-
-	// register the pipeline stages that are actually doing something
-	graph.RegisterStart(builder, stages.HttpIngestStage, stages.HttpIngestProvider)
-	graph.RegisterMiddle(builder, stages.FieldDeleterStage, stages.FieldDeleterTransformProvider)
-	graph.RegisterExport(builder, stages.StdoutExportStage, stages.StdOutExportProvider)
 
 	// Parse config and build graph from it
 	grp, err := os.Open(*graphFile)
@@ -38,6 +38,7 @@ func main() {
 	if err != nil {
 		log.Printf("can't instantiate configuration: %v", err)
 	}
+
 	stages.ApplyConfig(&cfg, builder)
 
 	// build and run the graph
