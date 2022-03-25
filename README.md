@@ -1,6 +1,6 @@
 # PIPES: Processing In Pipeline-Embedded Stages
 
-Go-pipes is a library that allows to dynamically connect multiple pipeline
+PIPES is a library that allows to dynamically connect multiple pipeline
 stages that are communicated via channels. Each stage will run in a goroutine.
 
 API doc: https://pkg.go.dev/github.com/mariomac/pipes
@@ -95,3 +95,5 @@ even number: 4
 ```
 
 ## High-level API
+
+TBD
