@@ -75,25 +75,25 @@ func RegisterExport[CFG, I any](nb *Builder, sType stage.Type, b stage.TerminalP
 	nb.terminalProviders[sType] = b
 }
 
-func NewStart[CFG, O any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
+func InstantiateStart[CFG, O any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
 	if ib, ok := nb.startProviders[t]; ok {
-		nb.ingests[n] = ib.(stage.StartProvider[CFG, O])(args)
+		nb.ingests[n] = node.AsStart(ib.(stage.StartProvider[CFG, O])(args))
 		return nil
 	}
 	return fmt.Errorf("unknown node name %q for type %q", n, t)
 }
 
-func NewMiddle[CFG, I, O any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
+func InstantiateMiddle[CFG, I, O any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
 	if tb, ok := nb.middleProviders[t]; ok {
-		nb.transforms[n] = tb.(stage.MiddleProvider[CFG, I, O])(args)
+		nb.transforms[n] = node.AsMiddle(tb.(stage.MiddleProvider[CFG, I, O])(args))
 		return nil
 	}
 	return fmt.Errorf("unknown node name %q for type %q", n, t)
 }
 
-func NewTerminal[CFG, I any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
+func InstantiateTerminal[CFG, I any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
 	if eb, ok := nb.terminalProviders[t]; ok {
-		nb.exports[n] = eb.(stage.TerminalProvider[CFG, I])(args)
+		nb.exports[n] = node.AsTerminal(eb.(stage.TerminalProvider[CFG, I])(args))
 		return nil
 	}
 	return fmt.Errorf("unknown node name %q for type %q", n, t)

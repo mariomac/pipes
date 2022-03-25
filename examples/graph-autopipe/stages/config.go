@@ -34,17 +34,17 @@ func ReadConfig(in io.Reader) (PipeConfig, error) {
 func ApplyConfig(cfg *PipeConfig, builder *graph.Builder) {
 	// TODO: find a better way to configure from HCL without having to iterate all the stage types
 	for _, stg := range cfg.StdOut {
-		if err := graph.NewTerminal[Stdout, string](builder, stage.Name(stg.Name), StdoutExportStage, stg); err != nil {
+		if err := graph.InstantiateTerminal[Stdout, string](builder, stage.Name(stg.Name), StdoutExportStage, stg); err != nil {
 			logrus.WithError(err).WithField("config", stg).Fatal("can't instantiate node")
 		}
 	}
 	for _, stg := range cfg.Http {
-		if err := graph.NewStart[Http, []byte](builder, stage.Name(stg.Name), HttpIngestStage, stg); err != nil {
+		if err := graph.InstantiateStart[Http, []byte](builder, stage.Name(stg.Name), HttpIngestStage, stg); err != nil {
 			logrus.WithError(err).WithField("config", stg).Fatal("can't instantiate node")
 		}
 	}
 	for _, stg := range cfg.Deleter {
-		if err := graph.NewMiddle[Deleter, map[string]any, map[string]any](builder, stage.Name(stg.Name), FieldDeleterStage, stg); err != nil {
+		if err := graph.InstantiateMiddle[Deleter, map[string]any, map[string]any](builder, stage.Name(stg.Name), FieldDeleterStage, stg); err != nil {
 			logrus.WithError(err).WithField("config", stg).Fatal("can't instantiate node")
 		}
 	}
