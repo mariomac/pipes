@@ -34,23 +34,23 @@ func ReadConfig(in io.Reader) (PipeConfig, error) {
 func ApplyConfig(cfg *PipeConfig, builder *graph.Builder) {
 	// TODO: find a better way to configure from HCL without having to iterate all the stage types
 	for _, stg := range cfg.StdOut {
-		if err := graph.InstantiateTerminal[Stdout, string](builder, stage.Name(stg.Name), StdoutExportStage, stg); err != nil {
+		if err := graph.InstantiateTerminal[Stdout, string](builder, stage.InstanceID(stg.Name), StdOutExportProvider.ID, stg); err != nil {
 			logrus.WithError(err).WithField("config", stg).Fatal("can't instantiate node")
 		}
 	}
 	for _, stg := range cfg.Http {
-		if err := graph.InstantiateStart[Http, []byte](builder, stage.Name(stg.Name), HttpIngestStage, stg); err != nil {
+		if err := graph.InstantiateStart[Http, []byte](builder, stage.InstanceID(stg.Name), HttpIngestProvider.ID, stg); err != nil {
 			logrus.WithError(err).WithField("config", stg).Fatal("can't instantiate node")
 		}
 	}
 	for _, stg := range cfg.Deleter {
-		if err := graph.InstantiateMiddle[Deleter, map[string]any, map[string]any](builder, stage.Name(stg.Name), FieldDeleterStage, stg); err != nil {
+		if err := graph.InstantiateMiddle[Deleter, map[string]any, map[string]any](builder, stage.InstanceID(stg.Name), FieldDeleterTransformProvider.ID, stg); err != nil {
 			logrus.WithError(err).WithField("config", stg).Fatal("can't instantiate node")
 		}
 	}
 	for src, dsts := range cfg.Connect {
 		for _, dst := range dsts {
-			if err := builder.Connect(stage.Name(src), stage.Name(dst)); err != nil {
+			if err := builder.Connect(stage.InstanceID(src), stage.InstanceID(dst)); err != nil {
 				logrus.WithError(err).
 					WithFields(logrus.Fields{"src": src, "dst": dst}).
 					Fatal("can't connect stages")

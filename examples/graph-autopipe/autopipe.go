@@ -20,9 +20,9 @@ func main() {
 	builder := graph.NewBuilder()
 
 	// register the pipeline stage types that the user could want to instantiate and wire in the configuration
-	graph.RegisterStart(builder, stages.HttpIngestStage, stages.HttpIngestProvider)
-	graph.RegisterMiddle(builder, stages.FieldDeleterStage, stages.FieldDeleterTransformProvider)
-	graph.RegisterExport(builder, stages.StdoutExportStage, stages.StdOutExportProvider)
+	graph.RegisterStart(builder, stages.HttpIngestProvider)
+	graph.RegisterMiddle(builder, stages.FieldDeleterTransformProvider)
+	graph.RegisterExport(builder, stages.StdOutExportProvider)
 
 	// register codecs for automatic transformation between incompatible stages
 	graph.RegisterCodec(builder, stages.BytesToStringCodec)

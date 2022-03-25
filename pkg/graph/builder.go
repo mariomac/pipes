@@ -30,12 +30,12 @@ type inOutTyper interface {
 // its stages given a name and a type, as well as connect them. If two connected stages have
 // incompatible types, it will insert a codec in between to translate between the stage types
 type Builder struct {
-	startProviders    map[stage.Type]any
-	middleProviders   map[stage.Type]any
-	terminalProviders map[stage.Type]any
-	ingests           map[stage.Name]outTyper
-	transforms        map[stage.Name]inOutTyper
-	exports           map[stage.Name]inTyper
+	startProviders    map[stage.ProviderID]any
+	middleProviders   map[stage.ProviderID]any
+	terminalProviders map[stage.ProviderID]any
+	ingests           map[stage.InstanceID]outTyper
+	transforms        map[stage.InstanceID]inOutTyper
+	exports           map[stage.InstanceID]inTyper
 	connects          map[string][]string
 	codecs            map[codecKey][2]reflect.Value // 1: reflect.ValueOf(node.AsMiddle[I,O]), 2: reflect.ValueOf(middleFunc[I, O])
 }
@@ -43,12 +43,12 @@ type Builder struct {
 func NewBuilder() *Builder {
 	return &Builder{
 		codecs:            map[codecKey][2]reflect.Value{},
-		startProviders:    map[stage.Type]any{},        // stage.StartProvider
-		middleProviders:   map[stage.Type]any{},        // stage.MiddleProvider{},
-		terminalProviders: map[stage.Type]any{},        // stage.TerminalProvider{},
-		ingests:           map[stage.Name]outTyper{},   // *node.Start
-		transforms:        map[stage.Name]inOutTyper{}, // *node.Middle
-		exports:           map[stage.Name]inTyper{},    // *node.Terminal
+		startProviders:    map[stage.ProviderID]any{},        // stage.StartProvider
+		middleProviders:   map[stage.ProviderID]any{},        // stage.MiddleProvider{},
+		terminalProviders: map[stage.ProviderID]any{},        // stage.TerminalProvider{},
+		ingests:           map[stage.InstanceID]outTyper{},   // *node.Start
+		transforms:        map[stage.InstanceID]inOutTyper{}, // *node.Middle
+		exports:           map[stage.InstanceID]inTyper{},    // *node.Terminal
 		connects:          map[string][]string{},
 	}
 }
@@ -63,43 +63,43 @@ func RegisterCodec[I, O any](nb *Builder, middleFunc node.MiddleFunc[I, O]) {
 	}
 }
 
-func RegisterStart[CFG, O any](nb *Builder, sType stage.Type, b stage.StartProvider[CFG, O]) {
-	nb.startProviders[sType] = b
+func RegisterStart[CFG, O any](nb *Builder, b stage.StartProvider[CFG, O]) {
+	nb.startProviders[b.ID] = b
 }
 
-func RegisterMiddle[CFG, I, O any](nb *Builder, sType stage.Type, b stage.MiddleProvider[CFG, I, O]) {
-	nb.middleProviders[sType] = b
+func RegisterMiddle[CFG, I, O any](nb *Builder, b stage.MiddleProvider[CFG, I, O]) {
+	nb.middleProviders[b.ID] = b
 }
 
-func RegisterExport[CFG, I any](nb *Builder, sType stage.Type, b stage.TerminalProvider[CFG, I]) {
-	nb.terminalProviders[sType] = b
+func RegisterExport[CFG, I any](nb *Builder, b stage.TerminalProvider[CFG, I]) {
+	nb.terminalProviders[b.ID] = b
 }
 
-func InstantiateStart[CFG, O any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
+func InstantiateStart[CFG, O any](nb *Builder, n stage.InstanceID, t stage.ProviderID, args CFG) error {
 	if ib, ok := nb.startProviders[t]; ok {
-		nb.ingests[n] = node.AsStart(ib.(stage.StartProvider[CFG, O])(args))
+		nb.ingests[n] = node.AsStart(ib.(stage.StartProvider[CFG, O]).Function(args))
 		return nil
 	}
 	return fmt.Errorf("unknown node name %q for type %q", n, t)
 }
 
-func InstantiateMiddle[CFG, I, O any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
+func InstantiateMiddle[CFG, I, O any](nb *Builder, n stage.InstanceID, t stage.ProviderID, args CFG) error {
 	if tb, ok := nb.middleProviders[t]; ok {
-		nb.transforms[n] = node.AsMiddle(tb.(stage.MiddleProvider[CFG, I, O])(args))
+		nb.transforms[n] = node.AsMiddle(tb.(stage.MiddleProvider[CFG, I, O]).Function(args))
 		return nil
 	}
 	return fmt.Errorf("unknown node name %q for type %q", n, t)
 }
 
-func InstantiateTerminal[CFG, I any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
+func InstantiateTerminal[CFG, I any](nb *Builder, n stage.InstanceID, t stage.ProviderID, args CFG) error {
 	if eb, ok := nb.terminalProviders[t]; ok {
-		nb.exports[n] = node.AsTerminal(eb.(stage.TerminalProvider[CFG, I])(args))
+		nb.exports[n] = node.AsTerminal(eb.(stage.TerminalProvider[CFG, I]).Function(args))
 		return nil
 	}
 	return fmt.Errorf("unknown node name %q for type %q", n, t)
 }
 
-func (nb *Builder) Connect(src, dst stage.Name) error {
+func (nb *Builder) Connect(src, dst stage.InstanceID) error {
 	// find source and destination stages
 	var srcNode outTyper
 	var ok bool
