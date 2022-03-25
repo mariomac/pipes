@@ -43,9 +43,9 @@ type Builder struct {
 func NewBuilder() *Builder {
 	return &Builder{
 		codecs:            map[codecKey][2]reflect.Value{},
-		ingestBuilders:    map[stage.Type]any{},        // stage.IngestProvider
-		transformBuilders: map[stage.Type]any{},        // stage.TransformProvider{},
-		exportBuilders:    map[stage.Type]any{},        // stage.ExportProvider{},
+		ingestBuilders:    map[stage.Type]any{},        // stage.StartProvider
+		transformBuilders: map[stage.Type]any{},        // stage.MiddleProvider{},
+		exportBuilders:    map[stage.Type]any{},        // stage.TerminalProvider{},
 		ingests:           map[stage.Name]outTyper{},   // *node.Start
 		transforms:        map[stage.Name]inOutTyper{}, // *node.Middle
 		exports:           map[stage.Name]inTyper{},    // *node.Terminal
@@ -63,22 +63,22 @@ func RegisterCodec[I, O any](nb *Builder, middleFunc node.MiddleFunc[I, O]) {
 	}
 }
 
-func RegisterIngest[CFG, O any](nb *Builder, b stage.IngestProvider[CFG, O]) {
+func RegisterIngest[CFG, O any](nb *Builder, b stage.StartProvider[CFG, O]) {
 	nb.ingestBuilders[b.StageType] = b
 }
 
-func RegisterTransform[CFG, I, O any](nb *Builder, b stage.TransformProvider[CFG, I, O]) {
+func RegisterTransform[CFG, I, O any](nb *Builder, b stage.MiddleProvider[CFG, I, O]) {
 	nb.transformBuilders[b.StageType] = b
 }
 
-func RegisterExport[CFG, I any](nb *Builder, b stage.ExportProvider[CFG, I]) {
+func RegisterExport[CFG, I any](nb *Builder, b stage.TerminalProvider[CFG, I]) {
 	nb.exportBuilders[b.StageType] = b
 }
 
 // TODO: type name is redundant?
 func InstantiateIngest[CFG, O any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
 	if ib, ok := nb.ingestBuilders[t]; ok {
-		nb.ingests[n] = ib.(stage.IngestProvider[CFG, O]).Instantiator(args)
+		nb.ingests[n] = ib.(stage.StartProvider[CFG, O]).Instantiator(args)
 		return nil
 	}
 	return fmt.Errorf("unknown node name %q for type %q", n, t)
@@ -86,7 +86,7 @@ func InstantiateIngest[CFG, O any](nb *Builder, n stage.Name, t stage.Type, args
 
 func InstantiateTransform[CFG, I, O any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
 	if tb, ok := nb.transformBuilders[t]; ok {
-		nb.transforms[n] = tb.(stage.TransformProvider[CFG, I, O]).Instantiator(args)
+		nb.transforms[n] = tb.(stage.MiddleProvider[CFG, I, O]).Instantiator(args)
 		return nil
 	}
 	return fmt.Errorf("unknown node name %q for type %q", n, t)
@@ -94,7 +94,7 @@ func InstantiateTransform[CFG, I, O any](nb *Builder, n stage.Name, t stage.Type
 
 func InstantiateExport[CFG, I any](nb *Builder, n stage.Name, t stage.Type, args CFG) error {
 	if eb, ok := nb.exportBuilders[t]; ok {
-		nb.exports[n] = eb.(stage.ExportProvider[CFG, I]).Instantiator(args)
+		nb.exports[n] = eb.(stage.TerminalProvider[CFG, I]).Instantiator(args)
 		return nil
 	}
 	return fmt.Errorf("unknown node name %q for type %q", n, t)
