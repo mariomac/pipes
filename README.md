@@ -1,17 +1,24 @@
 # PIPES: Processing In Pipeline-Embedded Stages
 
-This is the upper-upstream fork version of the [Red Hat's & IBM Gopipes library](https://pkg.go.dev/github.com/netobserv/gopipes),
-where I plan to add experimental features that aren't related to any concrete product nor follow
-any peer review nor company standard.
+Go-pipes is a library that allows to dynamically connect multiple pipeline
+stages that are communicated via channels. Each stage will run in a goroutine.
 
 API doc: https://pkg.go.dev/github.com/mariomac/pipes
 
-Go-pipes is a library that allows to dynamically connect multiple pipeline
-stages that are communicated via channels. Each stage will run in a goroutine.
+It is the upper-upstream fork version of the [Red Hat's & IBM Gopipes library](https://pkg.go.dev/github.com/netobserv/gopipes)
+and the core parts of the [Red Hat's & IBM Flowlogs pipeline](https://github.com/netobserv/flowlogs-pipeline),
+where I plan to add experimental features that aren't related to any concrete product nor follow
+any peer review nor company standard.
 
 This library allows wrapping functions within Nodes of a graph. In order to pass data across
 the nodes, each wrapped function must receive, as arguments, an input channel, an output channel,
 or both.
+
+It has two usable API layers: the **low-level** API, where you manually instantiate and wire every
+node; and the **high-level** API, that allows you providing a predefined set of nodes that are
+automatically wired via configuration file.
+
+## Low-level API
 
 There are three types of nodes:
 
@@ -25,7 +32,7 @@ There are three types of nodes:
   another node, but can process it and send the results to outside the graph
   (e.g. memory, storage, web...)
 
-## Example pipeline
+## Example pipeline for the Low-Level API
 
 The following pipeline has two Init nodes that send the data to two destination Middle
 nodes (`odds` and `evens`). From there, the data follows their own branches until they
@@ -86,3 +93,5 @@ odd number: 1
 odd number: 887
 even number: 4
 ```
+
+## High-level API
