@@ -9,8 +9,7 @@ import (
 	"github.com/mariomac/pipes/pkg/internal/connect"
 )
 
-// todo: make it configurable
-const chBufLen = 20
+// TODO: OutType and InType methods are candidates for deprecation
 
 // InitFunc is a function that receives a writable channel as unique argument, and sends
 // value to that channel during an indefinite amount of time.
@@ -135,11 +134,12 @@ func AsInit[OUT any](fun InitFunc[OUT]) *Init[OUT] {
 }
 
 // AsMiddle wraps an MiddleFunc into an Middle node.
-func AsMiddle[IN, OUT any](fun MiddleFunc[IN, OUT]) *Middle[IN, OUT] {
+func AsMiddle[IN, OUT any](fun MiddleFunc[IN, OUT], opts ...Option) *Middle[IN, OUT] {
 	var in IN
 	var out OUT
+	options := getOptions(opts...)
 	return &Middle[IN, OUT]{
-		inputs:  connect.NewJoiner[IN](chBufLen),
+		inputs:  connect.NewJoiner[IN](options.channelBufferLen),
 		fun:     fun,
 		inType:  reflect.TypeOf(in),
 		outType: reflect.TypeOf(out),
@@ -147,10 +147,11 @@ func AsMiddle[IN, OUT any](fun MiddleFunc[IN, OUT]) *Middle[IN, OUT] {
 }
 
 // AsTerminal wraps a TerminalFunc into a Terminal node.
-func AsTerminal[IN any](fun TerminalFunc[IN]) *Terminal[IN] {
+func AsTerminal[IN any](fun TerminalFunc[IN], opts ...Option) *Terminal[IN] {
 	var i IN
+	options := getOptions(opts...)
 	return &Terminal[IN]{
-		inputs: connect.NewJoiner[IN](chBufLen),
+		inputs: connect.NewJoiner[IN](options.channelBufferLen),
 		fun:    fun,
 		done:   make(chan struct{}),
 		inType: reflect.TypeOf(i),
@@ -200,4 +201,12 @@ func (t *Terminal[IN]) start() {
 		t.fun(t.inputs.Receiver())
 		close(t.done)
 	}()
+}
+
+func getOptions(opts ...Option) creationOptions {
+	options := defaultOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
+	return options
 }

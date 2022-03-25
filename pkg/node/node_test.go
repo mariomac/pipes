@@ -85,6 +85,125 @@ func TestTypeCapture(t *testing.T) {
 	assert.Equal(t, reflect.TypeOf([]string{}), testColl.OutType())
 }
 
+func TestConfigurationOptions_UnbufferedChannelCommunication(t *testing.T) {
+	graphIn, graphOut := make(chan int), make(chan int)
+	endInit, endMiddle, endTerm := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	init := AsInit(func(out chan<- int) {
+		n := <-graphIn
+		out <- n
+		close(endInit)
+	})
+	middle := AsMiddle(func(in <-chan int, out chan<- int) {
+		n := <-in
+		out <- n
+		close(endMiddle)
+	})
+	term := AsTerminal(func(in <-chan int) {
+		n := <-in
+		graphOut <- n
+		close(endTerm)
+	})
+	init.SendsTo(middle)
+	middle.SendsTo(term)
+	init.Start()
+
+	graphIn <- 123
+	// Since the nodes are unbuffered, they are blocked and can't accept/process data until
+	// the last node exports it
+	select {
+	case <-endInit:
+		require.Fail(t, "expected that init node is still blocked")
+	default: //ok!
+	}
+	select {
+	case <-endMiddle:
+		require.Fail(t, "expected that middle node is still blocked")
+	default: //ok!
+	}
+	select {
+	case <-endTerm:
+		require.Fail(t, "expected that terminal node is still blocked")
+	default: //ok!
+	}
+	// After the last stage has exported the data, the rest of the channels are unblocked
+	select {
+	case <-graphOut: //ok!
+	case <-time.After(timeout):
+		require.Fail(t, "timeout while waiting for the terminal node to forward the data")
+	}
+	select {
+	case <-endInit: //ok!
+	case <-time.After(timeout):
+		require.Fail(t, "timeout while waiting for the init node to finish")
+	}
+	select {
+	case <-endMiddle: //ok!
+	case <-time.After(timeout):
+		require.Fail(t, "timeout while waiting for the middle node to finish")
+	}
+	select {
+	case <-endTerm: //ok!
+	case <-time.After(timeout):
+		require.Fail(t, "timeout while waiting for the terminal node to finish")
+	}
+}
+
+func TestConfigurationOptions_BufferedChannelCommunication(t *testing.T) {
+	graphIn, graphOut := make(chan int), make(chan int)
+	endInit, endMiddle, endTerm := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	init := AsInit(func(out chan<- int) {
+		n := <-graphIn
+		out <- n
+		close(endInit)
+	})
+	middle := AsMiddle(func(in <-chan int, out chan<- int) {
+		n := <-in
+		out <- n
+		close(endMiddle)
+	}, ChannelBufferLen(1))
+	term := AsTerminal(func(in <-chan int) {
+		n := <-in
+		graphOut <- n
+		close(endTerm)
+	}, ChannelBufferLen(1))
+	init.SendsTo(middle)
+	middle.SendsTo(term)
+	init.Start()
+
+	graphIn <- 123
+	// Since the nodes are buffered, they can keep accepting/processing data even if the last
+	// node hasn't exported it
+
+	select {
+	case <-endInit: //ok!
+	case <-time.After(timeout):
+		require.Fail(t, "timeout while waiting for the init node to finish")
+	}
+	select {
+	case <-endMiddle: //ok!
+	case <-time.After(timeout):
+		require.Fail(t, "timeout while waiting for the middle node to finish")
+	}
+	select {
+	case <-endTerm:
+		require.Fail(t, "expected that terminal node is still blocked")
+	default: //ok!
+	}
+
+	// unblock terminal node
+	select {
+	case <-graphOut: //ok!
+	case <-time.After(timeout):
+		require.Fail(t, "timeout while waiting for the terminal node to forward the data")
+	}
+	select {
+	case <-endTerm: //ok!
+	case <-time.After(timeout):
+		require.Fail(t, "timeout while waiting for the terminal node to finish")
+	}
+
+}
+
 func Counter(from, to int) func(out chan<- int) {
 	return func(out chan<- int) {
 		for i := from; i <= to; i++ {

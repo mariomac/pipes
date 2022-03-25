@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# v0.3.0
+* Inter-node communication input channels are now unbuffered by default. To make them buffered,
+  you can append the `node.ChannelBufferLen` function to the `AsMiddle` and `AsTerminal` functions.
+
 # v0.2.0
 
 * Ported to Go 1.18 and generics for faster and safer execution.
