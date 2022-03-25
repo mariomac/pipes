@@ -13,6 +13,19 @@ type codecKey struct {
 	Out reflect.Type
 }
 
+type outTyper interface {
+	OutType() reflect.Type
+}
+
+type inTyper interface {
+	InType() reflect.Type
+}
+
+type inOutTyper interface {
+	inTyper
+	outTyper
+}
+
 // Builder helps building a graph and connect their nodes. It takes care of instantiating all
 // its stages given a name and a type, as well as connect them. If two connected stages have
 // incompatible types, it will insert a codec in between to translate between the stage types
@@ -20,30 +33,34 @@ type Builder struct {
 	ingestBuilders    map[stage.Type]any
 	transformBuilders map[stage.Type]any
 	exportBuilders    map[stage.Type]any
-	ingests           map[stage.Name]any
-	transforms        map[stage.Name]any
-	exports           map[stage.Name]any
+	ingests           map[stage.Name]outTyper
+	transforms        map[stage.Name]inOutTyper
+	exports           map[stage.Name]inTyper
 	connects          map[string][]string
-	codecs            map[codecKey]any
+	codecs            map[codecKey][2]reflect.Value // 1: reflect.ValueOf(node.AsMiddle[I,O]), 2: reflect.ValueOf(middleFunc[I, O])
 }
 
 func NewBuilder() *Builder {
 	return &Builder{
-		codecs:            map[codecKey]any{},   // node.MiddleFunc[I,O]
-		ingestBuilders:    map[stage.Type]any{}, // stage.IngestProvider
-		transformBuilders: map[stage.Type]any{}, // stage.TransformProvider{},
-		exportBuilders:    map[stage.Type]any{}, // stage.ExportProvider{},
-		ingests:           map[stage.Name]any{}, // *node.Init
-		transforms:        map[stage.Name]any{}, // *node.Middle
-		exports:           map[stage.Name]any{}, // *node.Terminal
+		codecs:            map[codecKey][2]reflect.Value{},
+		ingestBuilders:    map[stage.Type]any{},        // stage.IngestProvider
+		transformBuilders: map[stage.Type]any{},        // stage.TransformProvider{},
+		exportBuilders:    map[stage.Type]any{},        // stage.ExportProvider{},
+		ingests:           map[stage.Name]outTyper{},   // *node.Init
+		transforms:        map[stage.Name]inOutTyper{}, // *node.Middle
+		exports:           map[stage.Name]inTyper{},    // *node.Terminal
 		connects:          map[string][]string{},
 	}
 }
 
 func RegisterCodec[I, O any](nb *Builder, middleFunc node.MiddleFunc[I, O]) {
+	var in I
+	var out O
 	// temporary middle node used only to check input/output types
-	mn := node.AsMiddle(middleFunc)
-	nb.codecs[codecKey{In: mn.InType(), Out: mn.OutType()}] = middleFunc
+	nb.codecs[codecKey{In: reflect.TypeOf(in), Out: reflect.TypeOf(out)}] = [2]reflect.Value{
+		reflect.ValueOf(node.AsMiddle[I, O]),
+		reflect.ValueOf(middleFunc),
+	}
 }
 
 func RegisterIngest[O any](nb *Builder, b stage.IngestProvider[O]) {
@@ -81,40 +98,47 @@ func InstantiateExport[I any](nb *Builder, n stage.Name, t stage.Type, args inte
 	return fmt.Errorf("unknown node name %q for type %q", n, t)
 }
 
-func Connect[SO, RI any](nb *Builder, src, dst stage.Name) error {
-	AQUI HAY QUE METER REFLECTION POR HUEVOS
+func Connect(nb *Builder, src, dst stage.Name) error {
 	// find source and destination stages
-	var srcNode node.Sender[SO]
+	var srcNode outTyper
 	var ok bool
-	srcNode, ok = nb.ingests[src].(node.Sender[SO])
+	srcNode, ok = nb.ingests[src]
 	if !ok {
-		srcNode, ok = nb.transforms[src].(node.Sender[SO])
+		srcNode, ok = nb.transforms[src]
 		if !ok {
 			return fmt.Errorf("invalid source node: %q", src)
 		}
 	}
-	var dstNode node.Receiver[RI]
-	dstNode, ok = nb.transforms[dst].(node.Receiver[RI])
+	var dstNode inTyper
+	dstNode, ok = nb.transforms[dst]
 	if !ok {
-		dstNode, ok = nb.exports[dst].(node.Receiver[RI])
+		dstNode, ok = nb.exports[dst]
 		if !ok {
 			return fmt.Errorf("invalid destination node: %q", dst)
 		}
 	}
+	srcSendsToMethod := reflect.ValueOf(srcNode).MethodByName("SendsTo")
+	if srcSendsToMethod.IsZero() {
+		panic(fmt.Sprintf("BUG: for stage %q, source of type %T does not have SendsTo method", src, srcNode))
+	}
 	// check if they have compatible types
 	if srcNode.OutType() == dstNode.InType() {
-		srcNode.SendsTo(dstNode.(node.Receiver[SO]))
+		srcSendsToMethod.Call([]reflect.Value{reflect.ValueOf(dstNode)})
 		return nil
 	}
 	// otherwise, we will add in intermediate codec layer
 	// TODO optimization: if many destinations share the same codec, instantiate it only once
-	codec, ok := newCodec[SO, RI](nb)
+	codec, ok := nb.newCodec(srcNode.OutType(), dstNode.InType())
 	if !ok {
 		return fmt.Errorf("can't connect %q and %q stages because there isn't registerded"+
 			" any %s -> %s codec", src, dst, srcNode.OutType(), dstNode.InType())
 	}
-	srcNode.SendsTo(codec)
-	codec.SendsTo(dstNode)
+	srcSendsToMethod.Call([]reflect.Value{codec})
+	codecSendsToMethod := codec.MethodByName("SendsTo")
+	if codecSendsToMethod.IsZero() {
+		panic(fmt.Sprintf("BUG: for stage %q, codec of type %T does not have SendsTo method", src, srcNode))
+	}
+	codecSendsToMethod.Call([]reflect.Value{reflect.ValueOf(dstNode)})
 	return nil
 }
 
@@ -129,12 +153,13 @@ func (nb *Builder) Build() Graph {
 	return g
 }
 
-func newCodec[IN, OUT any](nb *Builder) (*node.Middle[IN, OUT], bool) {
-	var in IN
-	var out OUT
-	fn, ok := nb.codecs[codecKey{In: reflect.TypeOf(in), Out: reflect.TypeOf(out)}]
+// returns a node.Midle[?, ?] as a value
+func (nb *Builder) newCodec(inType, outType reflect.Type) (reflect.Value, bool) {
+	codec, ok := nb.codecs[codecKey{In: inType, Out: outType}]
 	if !ok {
-		return nil, false
+		return reflect.ValueOf(nil), false
 	}
-	return node.AsMiddle(fn.(node.MiddleFunc[IN, OUT])), true
+
+	result := codec[0].Call(codec[1:])
+	return result[0], true
 }

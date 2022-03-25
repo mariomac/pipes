@@ -21,14 +21,14 @@ func main() {
 	builder := graph.NewBuilder()
 
 	// register codecs for automatic transformation between incompatible stages
-	builder.RegisterCodec(stage.BytesToStringCodec)
-	builder.RegisterCodec(stage.JSONBytesToMapCodec)
-	builder.RegisterCodec(stage.MapToStringCodec)
+	graph.RegisterCodec(builder, stage.BytesToStringCodec)
+	graph.RegisterCodec(builder, stage.JSONBytesToMapCodec)
+	graph.RegisterCodec(builder, stage.MapToStringCodec)
 
 	// register the pipeline stages that are actually doing something
-	builder.RegisterIngest(stage.HttpIngestProvider)
-	builder.RegisterTransform(stage.FieldDeleterTransformProvider)
-	builder.RegisterExport(stage.StdOutExportProvider)
+	graph.RegisterIngest(builder, stage.HttpIngestProvider)
+	graph.RegisterTransform(builder, stage.FieldDeleterTransformProvider)
+	graph.RegisterExport(builder, stage.StdOutExportProvider)
 
 	// Parse config and build graph from it
 	grp, err := os.Open(*graphFile)
