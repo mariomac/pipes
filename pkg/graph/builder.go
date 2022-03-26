@@ -77,6 +77,7 @@ func RegisterExport[CFG, I any](nb *Builder, b stage.TerminalProvider[CFG, I]) {
 }
 
 // TODO: unify instantiation
+
 func InstantiateStart[CFG, O any](nb *Builder, n stage.InstanceID, args CFG) error {
 	if ib, ok := nb.startProviders[typeOf[CFG]()]; ok {
 		nb.ingests[n] = node.AsStart(ib.(stage.StartProvider[CFG, O]).Function(args))

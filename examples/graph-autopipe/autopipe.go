@@ -11,12 +11,7 @@ import (
 
 var graphFile = flag.String("graph", "", "HCL graph file")
 
-func main() {
-	flag.Parse()
-	if graphFile == nil || *graphFile == "" {
-		flag.PrintDefaults()
-		os.Exit(-1)
-	}
+func BuildGraph(graphFile string) graph.Graph {
 	builder := graph.NewBuilder()
 
 	// register the pipeline stage types that the user could want to instantiate and wire in the configuration
@@ -30,18 +25,28 @@ func main() {
 	graph.RegisterCodec(builder, stages.MapToStringCodec)
 
 	// Parse config and build graph from it
-	grp, err := os.Open(*graphFile)
+	grp, err := os.Open(graphFile)
 	if err != nil {
 		log.Printf("can't load configuration: %v", err)
+		panic(err)
 	}
 	cfg, err := stages.ReadConfig(grp)
 	if err != nil {
 		log.Printf("can't instantiate configuration: %v", err)
+		panic(err)
 	}
 
 	stages.ApplyConfig(&cfg, builder)
 
 	// build and run the graph
-	b := builder.Build()
-	b.Run()
+	return builder.Build()
+}
+func main() {
+	flag.Parse()
+	if graphFile == nil || *graphFile == "" {
+		flag.PrintDefaults()
+		os.Exit(-1)
+	}
+	p := BuildGraph(*graphFile)
+	p.Run()
 }
