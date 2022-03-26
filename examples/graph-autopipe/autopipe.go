@@ -41,6 +41,7 @@ func BuildGraph(graphFile string) graph.Graph {
 	// build and run the graph
 	return builder.Build()
 }
+
 func main() {
 	flag.Parse()
 	if graphFile == nil || *graphFile == "" {

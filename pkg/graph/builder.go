@@ -30,25 +30,25 @@ type inOutTyper interface {
 // its stages given a name and a type, as well as connect them. If two connected stages have
 // incompatible types, it will insert a codec in between to translate between the stage types
 type Builder struct {
-	startProviders    map[reflect.Type]any
-	middleProviders   map[reflect.Type]any
-	terminalProviders map[reflect.Type]any
+	startProviders    map[reflect.Type][2]reflect.Value //0: reflect.ValueOf(node.AsStart[I, O]), 1: reflect.ValueOf(startfunc)
+	middleProviders   map[reflect.Type][2]reflect.Value
+	terminalProviders map[reflect.Type][2]reflect.Value
 	ingests           map[stage.InstanceID]outTyper
 	transforms        map[stage.InstanceID]inOutTyper
 	exports           map[stage.InstanceID]inTyper
 	connects          map[string][]string
-	codecs            map[codecKey][2]reflect.Value // 1: reflect.ValueOf(node.AsMiddle[I,O]), 2: reflect.ValueOf(middleFunc[I, O])
+	codecs            map[codecKey][2]reflect.Value // 0: reflect.ValueOf(node.AsMiddle[I,O]), 1: reflect.ValueOf(middleFunc[I, O])
 }
 
 func NewBuilder() *Builder {
 	return &Builder{
 		codecs:            map[codecKey][2]reflect.Value{},
-		startProviders:    map[reflect.Type]any{},            // stage.StartProvider
-		middleProviders:   map[reflect.Type]any{},            // stage.MiddleProvider{},
-		terminalProviders: map[reflect.Type]any{},            // stage.TerminalProvider{},
-		ingests:           map[stage.InstanceID]outTyper{},   // *node.Start
-		transforms:        map[stage.InstanceID]inOutTyper{}, // *node.Middle
-		exports:           map[stage.InstanceID]inTyper{},    // *node.Terminal
+		startProviders:    map[reflect.Type][2]reflect.Value{}, // stage.StartProvider
+		middleProviders:   map[reflect.Type][2]reflect.Value{}, // stage.MiddleProvider{},
+		terminalProviders: map[reflect.Type][2]reflect.Value{}, // stage.TerminalProvider{},
+		ingests:           map[stage.InstanceID]outTyper{},     // *node.Start
+		transforms:        map[stage.InstanceID]inOutTyper{},   // *node.Middle
+		exports:           map[stage.InstanceID]inTyper{},      // *node.Terminal
 		connects:          map[string][]string{},
 	}
 }
@@ -65,38 +65,46 @@ func RegisterCodec[I, O any](nb *Builder, middleFunc node.MiddleFunc[I, O]) {
 
 // TODO: error if registering two configuration types. Suggest e.g using typedefs for same underlying type
 func RegisterStart[CFG, O any](nb *Builder, b stage.StartProvider[CFG, O]) {
-	nb.startProviders[typeOf[CFG]()] = b
+	nb.startProviders[typeOf[CFG]()] = [2]reflect.Value{
+		reflect.ValueOf(node.AsStart[O]),
+		reflect.ValueOf(b),
+	}
 }
 
 func RegisterMiddle[CFG, I, O any](nb *Builder, b stage.MiddleProvider[CFG, I, O]) {
-	nb.middleProviders[typeOf[CFG]()] = b
+	nb.middleProviders[typeOf[CFG]()] = [2]reflect.Value{
+		reflect.ValueOf(node.AsMiddle[I, O]),
+		reflect.ValueOf(b),
+	}
 }
 
 func RegisterExport[CFG, I any](nb *Builder, b stage.TerminalProvider[CFG, I]) {
-	nb.terminalProviders[typeOf[CFG]()] = b
+	nb.terminalProviders[typeOf[CFG]()] = [2]reflect.Value{
+		reflect.ValueOf(node.AsTerminal[I]),
+		reflect.ValueOf(b),
+	}
 }
 
-// TODO: unify instantiation
-
-func InstantiateStart[CFG, O any](nb *Builder, n stage.InstanceID, args CFG) error {
+func Instantiate[CFG any](nb *Builder, n stage.InstanceID, args CFG) error {
+	rargs := []reflect.Value{reflect.ValueOf(args)}
 	if ib, ok := nb.startProviders[typeOf[CFG]()]; ok {
-		nb.ingests[n] = node.AsStart(ib.(stage.StartProvider[CFG, O]).Function(args))
+		providerInvocation := ib[1].Call(rargs)
+		asStartInvocation := ib[0].Call(providerInvocation)
+		nb.ingests[n] = asStartInvocation[0].Interface().(outTyper)
 		return nil
 	}
-	return fmt.Errorf("unknown node name %q for type %q", n, typeOf[CFG]())
-}
 
-func InstantiateMiddle[CFG, I, O any](nb *Builder, n stage.InstanceID, args CFG) error {
 	if tb, ok := nb.middleProviders[typeOf[CFG]()]; ok {
-		nb.transforms[n] = node.AsMiddle(tb.(stage.MiddleProvider[CFG, I, O]).Function(args))
+		providerInvocation := tb[1].Call(rargs)
+		asMiddleInvocation := tb[0].Call(providerInvocation)
+		nb.transforms[n] = asMiddleInvocation[0].Interface().(inOutTyper)
 		return nil
 	}
-	return fmt.Errorf("unknown node name %q for type %q", n, typeOf[CFG]())
-}
 
-func InstantiateTerminal[CFG, I any](nb *Builder, n stage.InstanceID, args CFG) error {
 	if eb, ok := nb.terminalProviders[typeOf[CFG]()]; ok {
-		nb.exports[n] = node.AsTerminal(eb.(stage.TerminalProvider[CFG, I]).Function(args))
+		providerInvocation := eb[1].Call(rargs)
+		asTerminalInvocation := eb[0].Call(providerInvocation)
+		nb.exports[n] = asTerminalInvocation[0].Interface().(inTyper)
 		return nil
 	}
 	return fmt.Errorf("unknown node name %q for type %q", n, typeOf[CFG]())
