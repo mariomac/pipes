@@ -30,9 +30,9 @@ type inOutTyper interface {
 // its stages given a name and a type, as well as connect them. If two connected stages have
 // incompatible types, it will insert a codec in between to translate between the stage types
 type Builder struct {
-	startProviders    map[stage.ProviderID]any
-	middleProviders   map[stage.ProviderID]any
-	terminalProviders map[stage.ProviderID]any
+	startProviders    map[reflect.Type]any
+	middleProviders   map[reflect.Type]any
+	terminalProviders map[reflect.Type]any
 	ingests           map[stage.InstanceID]outTyper
 	transforms        map[stage.InstanceID]inOutTyper
 	exports           map[stage.InstanceID]inTyper
@@ -43,9 +43,9 @@ type Builder struct {
 func NewBuilder() *Builder {
 	return &Builder{
 		codecs:            map[codecKey][2]reflect.Value{},
-		startProviders:    map[stage.ProviderID]any{},        // stage.StartProvider
-		middleProviders:   map[stage.ProviderID]any{},        // stage.MiddleProvider{},
-		terminalProviders: map[stage.ProviderID]any{},        // stage.TerminalProvider{},
+		startProviders:    map[reflect.Type]any{},            // stage.StartProvider
+		middleProviders:   map[reflect.Type]any{},            // stage.MiddleProvider{},
+		terminalProviders: map[reflect.Type]any{},            // stage.TerminalProvider{},
 		ingests:           map[stage.InstanceID]outTyper{},   // *node.Start
 		transforms:        map[stage.InstanceID]inOutTyper{}, // *node.Middle
 		exports:           map[stage.InstanceID]inTyper{},    // *node.Terminal
@@ -63,40 +63,42 @@ func RegisterCodec[I, O any](nb *Builder, middleFunc node.MiddleFunc[I, O]) {
 	}
 }
 
+// TODO: error if registering two configuration types. Suggest e.g using typedefs for same underlying type
 func RegisterStart[CFG, O any](nb *Builder, b stage.StartProvider[CFG, O]) {
-	nb.startProviders[b.ID] = b
+	nb.startProviders[typeOf[CFG]()] = b
 }
 
 func RegisterMiddle[CFG, I, O any](nb *Builder, b stage.MiddleProvider[CFG, I, O]) {
-	nb.middleProviders[b.ID] = b
+	nb.middleProviders[typeOf[CFG]()] = b
 }
 
 func RegisterExport[CFG, I any](nb *Builder, b stage.TerminalProvider[CFG, I]) {
-	nb.terminalProviders[b.ID] = b
+	nb.terminalProviders[typeOf[CFG]()] = b
 }
 
-func InstantiateStart[CFG, O any](nb *Builder, n stage.InstanceID, t stage.ProviderID, args CFG) error {
-	if ib, ok := nb.startProviders[t]; ok {
+// TODO: unify instantiation
+func InstantiateStart[CFG, O any](nb *Builder, n stage.InstanceID, args CFG) error {
+	if ib, ok := nb.startProviders[typeOf[CFG]()]; ok {
 		nb.ingests[n] = node.AsStart(ib.(stage.StartProvider[CFG, O]).Function(args))
 		return nil
 	}
-	return fmt.Errorf("unknown node name %q for type %q", n, t)
+	return fmt.Errorf("unknown node name %q for type %q", n, typeOf[CFG]())
 }
 
-func InstantiateMiddle[CFG, I, O any](nb *Builder, n stage.InstanceID, t stage.ProviderID, args CFG) error {
-	if tb, ok := nb.middleProviders[t]; ok {
+func InstantiateMiddle[CFG, I, O any](nb *Builder, n stage.InstanceID, args CFG) error {
+	if tb, ok := nb.middleProviders[typeOf[CFG]()]; ok {
 		nb.transforms[n] = node.AsMiddle(tb.(stage.MiddleProvider[CFG, I, O]).Function(args))
 		return nil
 	}
-	return fmt.Errorf("unknown node name %q for type %q", n, t)
+	return fmt.Errorf("unknown node name %q for type %q", n, typeOf[CFG]())
 }
 
-func InstantiateTerminal[CFG, I any](nb *Builder, n stage.InstanceID, t stage.ProviderID, args CFG) error {
-	if eb, ok := nb.terminalProviders[t]; ok {
+func InstantiateTerminal[CFG, I any](nb *Builder, n stage.InstanceID, args CFG) error {
+	if eb, ok := nb.terminalProviders[typeOf[CFG]()]; ok {
 		nb.exports[n] = node.AsTerminal(eb.(stage.TerminalProvider[CFG, I]).Function(args))
 		return nil
 	}
-	return fmt.Errorf("unknown node name %q for type %q", n, t)
+	return fmt.Errorf("unknown node name %q for type %q", n, typeOf[CFG]())
 }
 
 func (nb *Builder) Connect(src, dst stage.InstanceID) error {
@@ -163,4 +165,9 @@ func (nb *Builder) newCodec(inType, outType reflect.Type) (reflect.Value, bool) 
 
 	result := codec[0].Call(codec[1:])
 	return result[0], true
+}
+
+func typeOf[T any]() reflect.Type {
+	var t T
+	return reflect.TypeOf(t)
 }

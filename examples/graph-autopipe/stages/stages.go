@@ -20,7 +20,6 @@ type Http struct {
 // HttpIngestProvider listens for HTTP connections and forwards them. The instantiator
 // needs to receive a stage.Http instance.
 var HttpIngestProvider = stage.StartProvider[Http, []byte]{
-	ID: "http",
 	Function: func(c Http) node.StartFunc[[]byte] {
 		port := c.Port
 		if port == 0 {
@@ -55,7 +54,6 @@ type Stdout struct {
 
 // StdOutExportProvider receives any message and prints it, prepending a given message
 var StdOutExportProvider = stage.TerminalProvider[Stdout, string]{
-	ID: "stdout",
 	Function: func(c Stdout) node.TerminalFunc[string] {
 		return func(in <-chan string) {
 			for s := range in {
@@ -72,7 +70,6 @@ type Deleter struct {
 
 // FieldDeleterTransformProvider receives a map and removes the configured fields from it
 var FieldDeleterTransformProvider = stage.MiddleProvider[Deleter, map[string]any, map[string]any]{
-	ID: "Deleter",
 	Function: func(c Deleter) node.MiddleFunc[map[string]any, map[string]any] {
 		toDelete := map[string]struct{}{}
 		for _, f := range c.Fields {
