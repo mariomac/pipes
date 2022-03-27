@@ -33,11 +33,12 @@ type Builder struct {
 	startProviders    map[reflect.Type][2]reflect.Value //0: reflect.ValueOf(node.AsStart[I, O]), 1: reflect.ValueOf(startfunc)
 	middleProviders   map[reflect.Type][2]reflect.Value
 	terminalProviders map[reflect.Type][2]reflect.Value
-	ingests           map[stage.InstanceID]outTyper
-	transforms        map[stage.InstanceID]inOutTyper
-	exports           map[stage.InstanceID]inTyper
-	connects          map[string][]string
-	codecs            map[codecKey][2]reflect.Value // 0: reflect.ValueOf(node.AsMiddle[I,O]), 1: reflect.ValueOf(middleFunc[I, O])
+	// keys: instance IDs
+	ingests    map[string]outTyper
+	transforms map[string]inOutTyper
+	exports    map[string]inTyper
+	connects   map[string][]string
+	codecs     map[codecKey][2]reflect.Value // 0: reflect.ValueOf(node.AsMiddle[I,O]), 1: reflect.ValueOf(middleFunc[I, O])
 }
 
 func NewBuilder() *Builder {
@@ -46,9 +47,9 @@ func NewBuilder() *Builder {
 		startProviders:    map[reflect.Type][2]reflect.Value{}, // stage.StartProvider
 		middleProviders:   map[reflect.Type][2]reflect.Value{}, // stage.MiddleProvider{},
 		terminalProviders: map[reflect.Type][2]reflect.Value{}, // stage.TerminalProvider{},
-		ingests:           map[stage.InstanceID]outTyper{},     // *node.Start
-		transforms:        map[stage.InstanceID]inOutTyper{},   // *node.Middle
-		exports:           map[stage.InstanceID]inTyper{},      // *node.Terminal
+		ingests:           map[string]outTyper{},               // *node.Start
+		transforms:        map[string]inOutTyper{},             // *node.Middle
+		exports:           map[string]inTyper{},                // *node.Terminal
 		connects:          map[string][]string{},
 	}
 }
@@ -85,36 +86,36 @@ func RegisterTerminal[CFG, I any](nb *Builder, b stage.TerminalProvider[CFG, I])
 	}
 }
 
-func instantiate(nb *Builder, n stage.InstanceID, arg reflect.Value) error {
+func instantiate(nb *Builder, instanceID string, arg reflect.Value) error {
 	// TODO: check if instanceID is duplicate
-	if n == "" {
+	if instanceID == "" {
 		return fmt.Errorf("instance ID for type %s can't be empty", arg.Type())
 	}
 	rargs := []reflect.Value{arg}
 	if ib, ok := nb.startProviders[arg.Type()]; ok {
 		providerInvocation := ib[1].Call(rargs)
 		asStartInvocation := ib[0].Call(providerInvocation)
-		nb.ingests[n] = asStartInvocation[0].Interface().(outTyper)
+		nb.ingests[instanceID] = asStartInvocation[0].Interface().(outTyper)
 		return nil
 	}
 
 	if tb, ok := nb.middleProviders[arg.Type()]; ok {
 		providerInvocation := tb[1].Call(rargs)
 		asMiddleInvocation := tb[0].Call(providerInvocation)
-		nb.transforms[n] = asMiddleInvocation[0].Interface().(inOutTyper)
+		nb.transforms[instanceID] = asMiddleInvocation[0].Interface().(inOutTyper)
 		return nil
 	}
 
 	if eb, ok := nb.terminalProviders[arg.Type()]; ok {
 		providerInvocation := eb[1].Call(rargs)
 		asTerminalInvocation := eb[0].Call(providerInvocation)
-		nb.exports[n] = asTerminalInvocation[0].Interface().(inTyper)
+		nb.exports[instanceID] = asTerminalInvocation[0].Interface().(inTyper)
 		return nil
 	}
-	return fmt.Errorf("unknown node name %q for type %q", n, arg.Type())
+	return fmt.Errorf("unknown node name %q for type %q", instanceID, arg.Type())
 }
 
-func (b *Builder) connect(src, dst stage.InstanceID) error {
+func (b *Builder) connect(src, dst string) error {
 	// find source and destination stages
 	var srcNode outTyper
 	var ok bool

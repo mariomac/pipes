@@ -37,7 +37,7 @@ func (b *Builder) ApplyConfig(cfg ConnectedConfig) error {
 
 	for src, dsts := range cfg.Connections() {
 		for _, dst := range dsts {
-			if err := b.connect(stage.InstanceID(src), stage.InstanceID(dst)); err != nil {
+			if err := b.connect(src, dst); err != nil {
 				logrus.WithError(err).
 					WithFields(logrus.Fields{"src": src, "dst": dst}).
 					Fatal("can't connect stages")

@@ -4,23 +4,20 @@ import (
 	"github.com/mariomac/pipes/pkg/node"
 )
 
-// InstanceID provides a unique identifier to any instance of a graph stage
-type InstanceID string
-
 // TODO: Instance and InstanceID are too similar. Remove InstanceID, rename, or make it implement Instancer
 
 // Instance can be embedded into any stage configuration to be instantiable
 // (I will implement the required Instancer interface)
 type Instance string
 
-func (f Instance) ID() InstanceID {
-	return InstanceID(f)
+func (f Instance) ID() string {
+	return string(f)
 }
 
 // Instancer is the interface required by any stage configuration type that is
 // instantiated from the builder.ApplyConfig method.
 type Instancer interface {
-	ID() InstanceID
+	ID() string
 }
 
 var _ Instancer = (*Instance)(nil)
