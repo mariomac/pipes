@@ -12,8 +12,6 @@ import (
 
 const defaultPort = 8080
 
-type Name string
-
 type Http struct {
 	// TODO: look for a way to not have to set the hcl label
 	stage.Instance `hcl:",label"`

@@ -1,4 +1,6 @@
 # Graph API
-* Simple/universal configuration mechanism
+* Configuration: allow indistinctly register/use value or pointer configuration types indistinctly.
+* Don't have to specify the connections. Create e.g. a default connection behavior (order of definition? predefined in the type?)
+
 # Node API
 * Way of propagating errors

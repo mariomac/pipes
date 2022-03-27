@@ -85,30 +85,29 @@ func RegisterExport[CFG, I any](nb *Builder, b stage.TerminalProvider[CFG, I]) {
 	}
 }
 
-func Instantiate(nb *Builder, n stage.InstanceID, arg any) error {
-	args := reflect.ValueOf(arg)
-	rargs := []reflect.Value{args}
-	if ib, ok := nb.startProviders[args.Type()]; ok {
+func instantiate(nb *Builder, n stage.InstanceID, arg reflect.Value) error {
+	rargs := []reflect.Value{arg}
+	if ib, ok := nb.startProviders[arg.Type()]; ok {
 		providerInvocation := ib[1].Call(rargs)
 		asStartInvocation := ib[0].Call(providerInvocation)
 		nb.ingests[n] = asStartInvocation[0].Interface().(outTyper)
 		return nil
 	}
 
-	if tb, ok := nb.middleProviders[args.Type()]; ok {
+	if tb, ok := nb.middleProviders[arg.Type()]; ok {
 		providerInvocation := tb[1].Call(rargs)
 		asMiddleInvocation := tb[0].Call(providerInvocation)
 		nb.transforms[n] = asMiddleInvocation[0].Interface().(inOutTyper)
 		return nil
 	}
 
-	if eb, ok := nb.terminalProviders[args.Type()]; ok {
+	if eb, ok := nb.terminalProviders[arg.Type()]; ok {
 		providerInvocation := eb[1].Call(rargs)
 		asTerminalInvocation := eb[0].Call(providerInvocation)
 		nb.exports[n] = asTerminalInvocation[0].Interface().(inTyper)
 		return nil
 	}
-	return fmt.Errorf("unknown node name %q for type %q", n, args.Type())
+	return fmt.Errorf("unknown node name %q for type %q", n, arg.Type())
 }
 
 func (nb *Builder) Connect(src, dst stage.InstanceID) error {
