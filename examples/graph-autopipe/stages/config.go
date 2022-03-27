@@ -34,17 +34,17 @@ func ReadConfig(in io.Reader) (PipeConfig, error) {
 func ApplyConfig(cfg *PipeConfig, builder *graph.Builder) {
 	// TODO: find a better way to configure from HCL without having to iterate all the stage types
 	for _, stg := range cfg.StdOut {
-		if err := graph.Instantiate(builder, stage.InstanceID(stg.Name), stg); err != nil {
+		if err := graph.Instantiate(builder, stg.ID(), stg); err != nil {
 			logrus.WithError(err).WithField("config", stg).Fatal("can't instantiate node")
 		}
 	}
 	for _, stg := range cfg.Http {
-		if err := graph.Instantiate(builder, stage.InstanceID(stg.Name), stg); err != nil {
+		if err := graph.Instantiate(builder, stg.ID(), stg); err != nil {
 			logrus.WithError(err).WithField("config", stg).Fatal("can't instantiate node")
 		}
 	}
 	for _, stg := range cfg.Deleter {
-		if err := graph.Instantiate(builder, stage.InstanceID(stg.Name), stg); err != nil {
+		if err := graph.Instantiate(builder, stg.ID(), stg); err != nil {
 			logrus.WithError(err).WithField("config", stg).Fatal("can't instantiate node")
 		}
 	}

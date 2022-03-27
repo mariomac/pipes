@@ -2,6 +2,7 @@ package stages
 
 import (
 	"fmt"
+	"github.com/mariomac/pipes/pkg/graph/stage"
 	"io/ioutil"
 	"net/http"
 
@@ -11,9 +12,12 @@ import (
 
 const defaultPort = 8080
 
+type Name string
+
 type Http struct {
-	Name string `hcl:",label"`
-	Port int    `hcl:"port,optional"`
+	// TODO: look for a way to not have to set the hcl label
+	stage.Instance `hcl:",label"`
+	Port           int `hcl:"port,optional"`
 }
 
 // HttpIngestProvider listens for HTTP connections and forwards them. The instantiator
@@ -45,8 +49,8 @@ var HttpIngestProvider = func(c Http) node.StartFunc[[]byte] {
 }
 
 type Stdout struct {
-	Name    string `hcl:",label"`
-	Prepend string `hcl:"prepend,optional"`
+	stage.Instance `hcl:",label"`
+	Prepend        string `hcl:"prepend,optional"`
 }
 
 // StdOutExportProvider receives any message and prints it, prepending a given message
@@ -59,8 +63,8 @@ var StdOutExportProvider = func(c Stdout) node.TerminalFunc[string] {
 }
 
 type Deleter struct {
-	Name   string   `hcl:",label"`
-	Fields []string `hcl:"fields"`
+	stage.Instance `hcl:",label"`
+	Fields         []string `hcl:"fields"`
 }
 
 // FieldDeleterTransformProvider receives a map and removes the configured fields from it

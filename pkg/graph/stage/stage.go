@@ -4,7 +4,19 @@ import (
 	"github.com/mariomac/pipes/pkg/node"
 )
 
+type Instance string
+
 type InstanceID string
+
+func (f Instance) ID() InstanceID {
+	return InstanceID(f)
+}
+
+type InstanceIDProvider interface {
+	ID() InstanceID
+}
+
+var _ InstanceIDProvider = (*Instance)(nil)
 
 // A provider wraps an instantiation function that, given a configuration argument, returns a
 // node with a processing function.

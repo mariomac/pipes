@@ -20,3 +20,6 @@ require (
 	golang.org/x/text v0.3.5 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 )
+
+// TODO: replace when this PR gets merged https://github.com/hashicorp/hcl/pull/521
+replace github.com/hashicorp/hcl/v2 v2.11.1 => github.com/mariomac/hcl/v2 v2.11.2-0.20220326231146-b86f46cbcd08
