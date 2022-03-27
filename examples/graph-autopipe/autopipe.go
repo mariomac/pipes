@@ -36,7 +36,7 @@ func BuildGraph(graphFile string) graph.Graph {
 		panic(err)
 	}
 
-	if err := graph.ApplyConfig(cfg, builder); err != nil {
+	if err := builder.ApplyConfig(cfg); err != nil {
 		panic(err)
 	}
 

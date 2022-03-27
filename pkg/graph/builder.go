@@ -110,7 +110,7 @@ func instantiate(nb *Builder, n stage.InstanceID, arg reflect.Value) error {
 	return fmt.Errorf("unknown node name %q for type %q", n, arg.Type())
 }
 
-func (nb *Builder) Connect(src, dst stage.InstanceID) error {
+func (nb *Builder) connect(src, dst stage.InstanceID) error {
 	// find source and destination stages
 	var srcNode outTyper
 	var ok bool
