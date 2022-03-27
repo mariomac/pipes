@@ -7,6 +7,8 @@ import (
 // InstanceID provides a unique identifier to any instance of a graph stage
 type InstanceID string
 
+// TODO: Instance and InstanceID are too similar. Remove InstanceID, rename, or make it implement Instancer
+
 // Instance can be embedded into any stage configuration to be instantiable
 // (I will implement the required Instancer interface)
 type Instance string

@@ -17,7 +17,7 @@ func BuildGraph(graphFile string) graph.Graph {
 	// register the pipeline stage types that the user could want to instantiate and wire in the configuration
 	graph.RegisterStart(builder, stages.HttpIngestProvider)
 	graph.RegisterMiddle(builder, stages.FieldDeleterTransformProvider)
-	graph.RegisterExport(builder, stages.StdOutExportProvider)
+	graph.RegisterTerminal(builder, stages.StdOutExportProvider)
 
 	// register codecs for automatic transformation between incompatible stages
 	graph.RegisterCodec(builder, stages.BytesToStringCodec)

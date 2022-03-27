@@ -19,7 +19,7 @@ func (c Connector) Connections() map[string][]string {
 var connectorType = reflect.TypeOf(Connector{})
 
 type ConnectedConfig interface {
-	Connections() map[string][]string
+	Connections() map[string][]string // TODO: try using InstanceID instead of string
 }
 
 // ApplyConfig instantiates and configures the different pipeline stages according to the provided configuration

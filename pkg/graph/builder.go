@@ -78,7 +78,7 @@ func RegisterMiddle[CFG, I, O any](nb *Builder, b stage.MiddleProvider[CFG, I, O
 	}
 }
 
-func RegisterExport[CFG, I any](nb *Builder, b stage.TerminalProvider[CFG, I]) {
+func RegisterTerminal[CFG, I any](nb *Builder, b stage.TerminalProvider[CFG, I]) {
 	nb.terminalProviders[typeOf[CFG]()] = [2]reflect.Value{
 		reflect.ValueOf(node.AsTerminal[I]),
 		reflect.ValueOf(b),
@@ -86,6 +86,10 @@ func RegisterExport[CFG, I any](nb *Builder, b stage.TerminalProvider[CFG, I]) {
 }
 
 func instantiate(nb *Builder, n stage.InstanceID, arg reflect.Value) error {
+	// TODO: check if instanceID is duplicate
+	if n == "" {
+		return fmt.Errorf("instance ID for type %s can't be empty", arg.Type())
+	}
 	rargs := []reflect.Value{arg}
 	if ib, ok := nb.startProviders[arg.Type()]; ok {
 		providerInvocation := ib[1].Call(rargs)
@@ -110,21 +114,21 @@ func instantiate(nb *Builder, n stage.InstanceID, arg reflect.Value) error {
 	return fmt.Errorf("unknown node name %q for type %q", n, arg.Type())
 }
 
-func (nb *Builder) connect(src, dst stage.InstanceID) error {
+func (b *Builder) connect(src, dst stage.InstanceID) error {
 	// find source and destination stages
 	var srcNode outTyper
 	var ok bool
-	srcNode, ok = nb.ingests[src]
+	srcNode, ok = b.ingests[src]
 	if !ok {
-		srcNode, ok = nb.transforms[src]
+		srcNode, ok = b.transforms[src]
 		if !ok {
 			return fmt.Errorf("invalid source node: %q", src)
 		}
 	}
 	var dstNode inTyper
-	dstNode, ok = nb.transforms[dst]
+	dstNode, ok = b.transforms[dst]
 	if !ok {
-		dstNode, ok = nb.exports[dst]
+		dstNode, ok = b.exports[dst]
 		if !ok {
 			return fmt.Errorf("invalid destination node: %q", dst)
 		}
@@ -140,7 +144,7 @@ func (nb *Builder) connect(src, dst stage.InstanceID) error {
 	}
 	// otherwise, we will add in intermediate codec layer
 	// TODO optimization: if many destinations share the same codec, instantiate it only once
-	codec, ok := nb.newCodec(srcNode.OutType(), dstNode.InType())
+	codec, ok := b.newCodec(srcNode.OutType(), dstNode.InType())
 	if !ok {
 		return fmt.Errorf("can't connect %q and %q stages because there isn't registerded"+
 			" any %s -> %s codec", src, dst, srcNode.OutType(), dstNode.InType())
@@ -154,20 +158,20 @@ func (nb *Builder) connect(src, dst stage.InstanceID) error {
 	return nil
 }
 
-func (nb *Builder) Build() Graph {
+func (b *Builder) Build() Graph {
 	g := Graph{}
-	for _, i := range nb.ingests {
+	for _, i := range b.ingests {
 		g.start = append(g.start, i.(initNode))
 	}
-	for _, e := range nb.exports {
+	for _, e := range b.exports {
 		g.terms = append(g.terms, e.(terminalNode))
 	}
 	return g
 }
 
 // returns a node.Midle[?, ?] as a value
-func (nb *Builder) newCodec(inType, outType reflect.Type) (reflect.Value, bool) {
-	codec, ok := nb.codecs[codecKey{In: inType, Out: outType}]
+func (b *Builder) newCodec(inType, outType reflect.Type) (reflect.Value, bool) {
+	codec, ok := b.codecs[codecKey{In: inType, Out: outType}]
 	if !ok {
 		return reflect.ValueOf(nil), false
 	}
