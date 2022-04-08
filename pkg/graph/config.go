@@ -19,10 +19,9 @@ func (c Connector) Connections() map[string][]string {
 var connectorType = reflect.TypeOf(Connector{})
 
 type ConnectedConfig interface {
-	Connections() map[string][]string // TODO: try using InstanceID instead of string
+	Connections() map[string][]string
 }
 
-// TODO: make this private and invoke directly from Build (adding the config argument)
 // applyConfig instantiates and configures the different pipeline stages according to the provided configuration
 func (b *Builder) applyConfig(cfg ConnectedConfig) error {
 	cv := reflect.ValueOf(cfg)

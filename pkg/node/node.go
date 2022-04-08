@@ -9,8 +9,6 @@ import (
 	"github.com/mariomac/pipes/pkg/node/internal/connect"
 )
 
-// TODO: OutType and InType methods are candidates for deprecation
-
 // StartFunc is a function that receives a writable channel as unique argument, and sends
 // value to that channel during an indefinite amount of time.
 type StartFunc[OUT any] func(out chan<- OUT)
@@ -23,6 +21,8 @@ type MiddleFunc[IN, OUT any] func(in <-chan IN, out chan<- OUT)
 // TerminalFunc is a function that receives a readable channel as unique argument.
 // It must process the inputs from the input channel until it's closed.
 type TerminalFunc[IN any] func(out <-chan IN)
+
+// TODO: OutType and InType methods are candidates for deprecation
 
 // Sender is any node that can send data to another node: node.Start and node.Middle
 type Sender[OUT any] interface {
