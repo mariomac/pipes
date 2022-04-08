@@ -22,6 +22,7 @@ type ConnectedConfig interface {
 	Connections() map[string][]string // TODO: try using InstanceID instead of string
 }
 
+// TODO: make this private and invoke directly from Build (adding the config argument)
 // ApplyConfig instantiates and configures the different pipeline stages according to the provided configuration
 func (b *Builder) ApplyConfig(cfg ConnectedConfig) error {
 	cv := reflect.ValueOf(cfg)
@@ -73,11 +74,18 @@ func (b *Builder) applyConfig(cfgValue reflect.Value) error {
 	return nil
 }
 
+var graphInstanceType = reflect.TypeOf(stage.Instance(""))
+
 func (b *Builder) applyField(field reflect.Value) error {
 	instancer, ok := field.Interface().(stage.Instancer)
 	if !ok {
-		return fmt.Errorf("field of type %s should provide an 'ID() InstanceID' method."+
-			" Did you forgot to embed the stage.Instance field? ", field.Type())
+		// if it does not implement the instancer interface, let's check if it can be converted
+		// to the convenience stage.Instance type
+		if !field.Type().ConvertibleTo(graphInstanceType) {
+			return fmt.Errorf("field of type %s should provide an 'ID() InstanceID' method."+
+				" Did you forgot to embed the stage.Instance field? ", field.Type())
+		}
+		instancer = field.Convert(graphInstanceType).Interface().(stage.Instance)
 	}
 	return instantiate(b, instancer.ID(), field)
 }

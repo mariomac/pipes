@@ -5,7 +5,7 @@ import (
 )
 
 // Instance can be embedded into any stage configuration to be instantiable
-// (I will implement the required Instancer interface)
+// (convenience implementation for the required Instancer interface)
 type Instance string
 
 func (f Instance) ID() string {

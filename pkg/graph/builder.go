@@ -171,6 +171,7 @@ func (b *Builder) connect(src, dst string) error {
 	return nil
 }
 
+// TODO: return pointer for fluent graph.run invocation
 func (b *Builder) Build() Graph {
 	g := Graph{}
 	for _, i := range b.ingests {
