@@ -36,12 +36,12 @@ func TestOptions_BufferLen(t *testing.T) {
 	RegisterTerminal(nb, func(cfg endConfig) node.TerminalFunc[int] {
 		return func(in <-chan int) {}
 	})
-	require.NoError(t, nb.ApplyConfig(config{
+	graph, err := nb.Build(config{
 		Start:     startConfig{Instance: "1"},
 		End:       endConfig{Instance: "2"},
 		Connector: map[string][]string{"1": {"2"}},
-	}))
-	graph := nb.Build()
+	})
+	require.NoError(t, err)
 	go graph.Run()
 	select {
 	case <-startEnded:

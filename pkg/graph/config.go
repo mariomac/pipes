@@ -23,15 +23,15 @@ type ConnectedConfig interface {
 }
 
 // TODO: make this private and invoke directly from Build (adding the config argument)
-// ApplyConfig instantiates and configures the different pipeline stages according to the provided configuration
-func (b *Builder) ApplyConfig(cfg ConnectedConfig) error {
+// applyConfig instantiates and configures the different pipeline stages according to the provided configuration
+func (b *Builder) applyConfig(cfg ConnectedConfig) error {
 	cv := reflect.ValueOf(cfg)
 	if cv.Kind() == reflect.Pointer {
-		if err := b.applyConfig(cv.Elem()); err != nil {
+		if err := b.applyConfigReflect(cv.Elem()); err != nil {
 			return err
 		}
 	} else {
-		if err := b.applyConfig(cv); err != nil {
+		if err := b.applyConfigReflect(cv); err != nil {
 			return err
 		}
 	}
@@ -48,7 +48,7 @@ func (b *Builder) ApplyConfig(cfg ConnectedConfig) error {
 	return nil
 }
 
-func (b *Builder) applyConfig(cfgValue reflect.Value) error {
+func (b *Builder) applyConfigReflect(cfgValue reflect.Value) error {
 	if cfgValue.Kind() != reflect.Struct {
 		return fmt.Errorf("configuration should be a struct. Was: %s", cfgValue.Type())
 	}

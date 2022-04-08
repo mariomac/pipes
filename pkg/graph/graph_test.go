@@ -1,12 +1,13 @@
 package graph
 
 import (
+	"testing"
+	"time"
+
 	"github.com/mariomac/pipes/pkg/graph/stage"
 	"github.com/mariomac/pipes/pkg/node"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 func TestBasic(t *testing.T) {
@@ -54,7 +55,7 @@ func TestBasic(t *testing.T) {
 	})
 
 	map1, map2 := map[int]struct{}{}, map[int]struct{}{}
-	require.NoError(t, b.ApplyConfig(config{
+	g, err := b.Build(config{
 		Starts: []CounterCfg{
 			{From: 1, To: 5, Instance: "c1"},
 			{From: 6, To: 8, Instance: "c2"}},
@@ -67,9 +68,9 @@ func TestBasic(t *testing.T) {
 			"c2": {"d"},
 			"d":  {"m1", "m2"},
 		},
-	}))
+	})
+	require.NoError(t, err)
 
-	g := b.Build()
 	done := make(chan struct{})
 	go func() {
 		g.Run()

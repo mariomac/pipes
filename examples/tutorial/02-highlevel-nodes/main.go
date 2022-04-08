@@ -60,7 +60,7 @@ func main() {
 	graph.RegisterMiddle(builder, MiddleProvider)
 	graph.RegisterTerminal(builder, TerminalProvider)
 
-	if err := builder.ApplyConfig(Config{
+	grp, err := builder.Build(Config{
 		Starts: []StartConfig{
 			{Instance: "helloer", Prefix: "Hello"},
 			{Instance: "hier", Prefix: "Hi"},
@@ -72,11 +72,10 @@ func main() {
 			"hier":       []string{"uppercaser"},
 			"uppercaser": []string{"printer"},
 		},
-	}); err != nil {
+	})
+	if err != nil {
 		panic(err)
 	}
-
-	graph := builder.Build()
 	// graph.Run it's blocking and won't continue until the graph stopped processing
-	graph.Run()
+	grp.Run()
 }

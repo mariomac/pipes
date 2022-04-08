@@ -70,8 +70,6 @@ func RegisterCodec[I, O any](nb *Builder, middleFunc node.MiddleFunc[I, O]) {
 	}
 }
 
-// TODO: error if registering two configuration types. Suggest e.g using typedefs for same underlying type
-// TODO: allow passing options (e.b. buffer size for each concrete stage)
 func RegisterStart[CFG, O any](nb *Builder, b stage.StartProvider[CFG, O]) {
 	nb.startProviders[typeOf[CFG]()] = [2]reflect.Value{
 		reflect.ValueOf(node.AsStart[O]),
@@ -156,7 +154,6 @@ func (b *Builder) connect(src, dst string) error {
 		return nil
 	}
 	// otherwise, we will add in intermediate codec layer
-	// TODO optimization: if many destinations share the same codec, instantiate it only once
 	codec, ok := b.newCodec(srcNode.OutType(), dstNode.InType())
 	if !ok {
 		return fmt.Errorf("can't connect %q and %q stages because there isn't registerded"+
@@ -171,16 +168,19 @@ func (b *Builder) connect(src, dst string) error {
 	return nil
 }
 
-// TODO: return pointer for fluent graph.run invocation
-func (b *Builder) Build() Graph {
+func (b *Builder) Build(cfg ConnectedConfig) (Graph, error) {
 	g := Graph{}
+	if err := b.applyConfig(cfg); err != nil {
+		return g, err
+	}
+
 	for _, i := range b.ingests {
 		g.start = append(g.start, i.(initNode))
 	}
 	for _, e := range b.exports {
 		g.terms = append(g.terms, e.(terminalNode))
 	}
-	return g
+	return g, nil
 }
 
 // returns a node.Midle[?, ?] as a value
