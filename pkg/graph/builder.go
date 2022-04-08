@@ -39,9 +39,14 @@ type Builder struct {
 	exports    map[string]inTyper
 	connects   map[string][]string
 	codecs     map[codecKey][2]reflect.Value // 0: reflect.ValueOf(node.AsMiddle[I,O]), 1: reflect.ValueOf(middleFunc[I, O])
+	options    []reflect.Value
 }
 
-func NewBuilder() *Builder {
+func NewBuilder(options ...node.Option) *Builder {
+	optVals := make([]reflect.Value, 0, len(options))
+	for _, opt := range options {
+		optVals = append(optVals, reflect.ValueOf(opt))
+	}
 	return &Builder{
 		codecs:            map[codecKey][2]reflect.Value{},
 		startProviders:    map[reflect.Type][2]reflect.Value{}, // stage.StartProvider
@@ -51,6 +56,7 @@ func NewBuilder() *Builder {
 		transforms:        map[string]inOutTyper{},             // *node.Middle
 		exports:           map[string]inTyper{},                // *node.Terminal
 		connects:          map[string][]string{},
+		options:           optVals,
 	}
 }
 
@@ -65,6 +71,7 @@ func RegisterCodec[I, O any](nb *Builder, middleFunc node.MiddleFunc[I, O]) {
 }
 
 // TODO: error if registering two configuration types. Suggest e.g using typedefs for same underlying type
+// TODO: allow passing options (e.b. buffer size for each concrete stage)
 func RegisterStart[CFG, O any](nb *Builder, b stage.StartProvider[CFG, O]) {
 	nb.startProviders[typeOf[CFG]()] = [2]reflect.Value{
 		reflect.ValueOf(node.AsStart[O]),
@@ -93,23 +100,28 @@ func instantiate(nb *Builder, instanceID string, arg reflect.Value) error {
 	}
 	rargs := []reflect.Value{arg}
 	if ib, ok := nb.startProviders[arg.Type()]; ok {
-		providerInvocation := ib[1].Call(rargs)
-		asStartInvocation := ib[0].Call(providerInvocation)
-		nb.ingests[instanceID] = asStartInvocation[0].Interface().(outTyper)
+		// providedFunc = StartProvider(arg)
+		providedFunc := ib[1].Call(rargs)
+		// startNode = AsStart(providedFunc, nb.options...)
+		startNode := ib[0].Call(providedFunc)
+		nb.ingests[instanceID] = startNode[0].Interface().(outTyper)
 		return nil
 	}
-
 	if tb, ok := nb.middleProviders[arg.Type()]; ok {
-		providerInvocation := tb[1].Call(rargs)
-		asMiddleInvocation := tb[0].Call(providerInvocation)
-		nb.transforms[instanceID] = asMiddleInvocation[0].Interface().(inOutTyper)
+		// providedFunc = MiddleProvider(arg)
+		providedFunc := tb[1].Call(rargs)
+		// middleNode = AsMiddle(providedFunc, nb.options...)
+		middleNode := tb[0].Call(append(providedFunc, nb.options...))
+		nb.transforms[instanceID] = middleNode[0].Interface().(inOutTyper)
 		return nil
 	}
 
 	if eb, ok := nb.terminalProviders[arg.Type()]; ok {
-		providerInvocation := eb[1].Call(rargs)
-		asTerminalInvocation := eb[0].Call(providerInvocation)
-		nb.exports[instanceID] = asTerminalInvocation[0].Interface().(inTyper)
+		// providedFunc = TerminalProvider(arg)
+		providedFunc := eb[1].Call(rargs)
+		// termNode = AsTerminal(providedFunc, nb.options...)
+		termNode := eb[0].Call(append(providedFunc, nb.options...))
+		nb.exports[instanceID] = termNode[0].Interface().(inTyper)
 		return nil
 	}
 	return fmt.Errorf("unknown node name %q for type %q", instanceID, arg.Type())
