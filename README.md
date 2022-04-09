@@ -48,7 +48,7 @@ The High-Level API is aimed for graphs whose structure might be specified at run
 
 This API allows registering Node Generators and Codecs:
 
-* A **Node Generator** is a function that, given a unique configuration type, returns a function
+* A **Node Provider** is a generator function that, given a unique configuration type, returns a function
   that can go inside a Start, Middle or Terminal Node (as explained in the previous section).
 * A **Codec** is a middle function (this is, it's wrapped into a middle node and receives an input 
   readable channel and an output writable channel) where input and output belong to different types.
