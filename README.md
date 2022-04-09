@@ -13,7 +13,7 @@ and the core parts of the [Red Hat's & IBM Flowlogs pipeline](https://github.com
 where I plan to add experimental features that aren't related to any concrete product nor follow
 any peer review nor company standard.
 
-This library allows wrapping functions within Nodes of a connected. In order to pass data across
+This library allows wrapping functions within Nodes of a connected Graph. In order to pass data across
 the nodes, each wrapped function must receive, as arguments, an input channel, an output channel,
 or both.
 
