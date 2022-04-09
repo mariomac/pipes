@@ -1,6 +1,6 @@
 package graph
 
-type initNode interface {
+type startNode interface {
 	Start()
 }
 
@@ -8,8 +8,11 @@ type terminalNode interface {
 	Done() <-chan struct{}
 }
 
+// Graph is set of Start Nodes that generate information that is forwarded to
+// Middle or Terminal nodes, which process that information. It must be created
+// from the Builder type.
 type Graph struct {
-	start []initNode
+	start []startNode
 	terms []terminalNode
 }
 

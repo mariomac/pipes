@@ -26,7 +26,7 @@ type inOutTyper interface {
 	outTyper
 }
 
-// Builder helps building a graph and connect their nodes. It takes care of instantiating all
+// Builder helps to build a graph and to connect their nodes. It takes care of instantiating all
 // its stages given a name and a type, as well as connect them. If two connected stages have
 // incompatible types, it will insert a codec in between to translate between the stage types
 type Builder struct {
@@ -42,6 +42,8 @@ type Builder struct {
 	options    []reflect.Value
 }
 
+// NewBuilder instantiates a Graph Builder with the default configuration, which can be overridden via the
+// arguments.
 func NewBuilder(options ...node.Option) *Builder {
 	optVals := make([]reflect.Value, 0, len(options))
 	for _, opt := range options {
@@ -60,6 +62,11 @@ func NewBuilder(options ...node.Option) *Builder {
 	}
 }
 
+// RegisterCodec registers a Codec into the graph builder. A Codec is a node.MiddleFunc function
+// that allows converting data types and it's automatically inserted when a node with a given
+// output type is connected to a node with a different input type. When nodes with different
+// types are connected, a codec converting between both MUST have been registered previously.
+// Otherwise the graph Build method will fail.
 func RegisterCodec[I, O any](nb *Builder, middleFunc node.MiddleFunc[I, O]) {
 	var in I
 	var out O
@@ -70,6 +77,9 @@ func RegisterCodec[I, O any](nb *Builder, middleFunc node.MiddleFunc[I, O]) {
 	}
 }
 
+// RegisterStart registers a stage.StartProvider into the graph builder. When the Build
+// method is invoked later, any configuration field associated with the StartProvider will
+// result in the instantiation of a node.Start with the provider's returned function.
 func RegisterStart[CFG, O any](nb *Builder, b stage.StartProvider[CFG, O]) {
 	nb.startProviders[typeOf[CFG]()] = [2]reflect.Value{
 		reflect.ValueOf(node.AsStart[O]),
@@ -77,6 +87,9 @@ func RegisterStart[CFG, O any](nb *Builder, b stage.StartProvider[CFG, O]) {
 	}
 }
 
+// RegisterMiddle registers a stage.MiddleProvider into the graph builder. When the Build
+// method is invoked later, any configuration field associated with the MiddleProvider will
+// result in the instantiation of a node.Middle with the provider's returned function.
 func RegisterMiddle[CFG, I, O any](nb *Builder, b stage.MiddleProvider[CFG, I, O]) {
 	nb.middleProviders[typeOf[CFG]()] = [2]reflect.Value{
 		reflect.ValueOf(node.AsMiddle[I, O]),
@@ -84,11 +97,31 @@ func RegisterMiddle[CFG, I, O any](nb *Builder, b stage.MiddleProvider[CFG, I, O
 	}
 }
 
+// RegisterTerminal registers a stage.TerminalProvider into the graph builder. When the Build
+// method is invoked later, any configuration field associated with the TerminalProvider will
+// result in the instantiation of a node.Terminal with the provider's returned function.
 func RegisterTerminal[CFG, I any](nb *Builder, b stage.TerminalProvider[CFG, I]) {
 	nb.terminalProviders[typeOf[CFG]()] = [2]reflect.Value{
 		reflect.ValueOf(node.AsTerminal[I]),
 		reflect.ValueOf(b),
 	}
+}
+
+// Build creates a Graph where each node corresponds to a field in the passed Configuration struct.
+// The nodes will be connected according to the ConnectedConfig "source" --> ["destination"...] map.
+func (b *Builder) Build(cfg ConnectedConfig) (Graph, error) {
+	g := Graph{}
+	if err := b.applyConfig(cfg); err != nil {
+		return g, err
+	}
+
+	for _, i := range b.ingests {
+		g.start = append(g.start, i.(startNode))
+	}
+	for _, e := range b.exports {
+		g.terms = append(g.terms, e.(terminalNode))
+	}
+	return g, nil
 }
 
 func instantiate(nb *Builder, instanceID string, arg reflect.Value) error {
@@ -166,21 +199,6 @@ func (b *Builder) connect(src, dst string) error {
 	}
 	codecSendsToMethod.Call([]reflect.Value{reflect.ValueOf(dstNode)})
 	return nil
-}
-
-func (b *Builder) Build(cfg ConnectedConfig) (Graph, error) {
-	g := Graph{}
-	if err := b.applyConfig(cfg); err != nil {
-		return g, err
-	}
-
-	for _, i := range b.ingests {
-		g.start = append(g.start, i.(initNode))
-	}
-	for _, e := range b.exports {
-		g.terms = append(g.terms, e.(terminalNode))
-	}
-	return g, nil
 }
 
 // returns a node.Midle[?, ?] as a value

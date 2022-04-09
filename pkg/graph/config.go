@@ -8,17 +8,28 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Connector key: ID of the source node. Value: array of destination node IDs.
+var connectorType = reflect.TypeOf(Connector{})
+var graphInstanceType = reflect.TypeOf(stage.Instance(""))
+
+// Connector is a convenience implementor of the ConnectedConfig interface, required
+// to build any graph. It can be embedded into any configuration struct that is passed
+// as argument into the builder.Build method.
+//
+// Key: instance ID of the source node. Value: array of destination node instance IDs.
 type Connector map[string][]string
 
-// Connections returns the map holded by the Connector
+// Connections returns the connection map represented by the Connector
 func (c Connector) Connections() map[string][]string {
 	return c
 }
 
-var connectorType = reflect.TypeOf(Connector{})
-
+// ConnectedConfig describes the interface that any struct passed to the builder.Build
+// method must fullfill. Consider embedding the Connector type into your struct for
+// automatic implementation of the interface.
 type ConnectedConfig interface {
+	// Connections returns a map representing the connection of the node graphs, where
+	// the key contains the instance ID of the source node, and the value contains an
+	// array of the destination nodes' instance IDs.
 	Connections() map[string][]string
 }
 
@@ -72,8 +83,6 @@ func (b *Builder) applyConfigReflect(cfgValue reflect.Value) error {
 	}
 	return nil
 }
-
-var graphInstanceType = reflect.TypeOf(stage.Instance(""))
 
 func (b *Builder) applyField(field reflect.Value) error {
 	instancer, ok := field.Interface().(stage.Instancer)
