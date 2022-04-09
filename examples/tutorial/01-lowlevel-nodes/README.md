@@ -207,3 +207,17 @@ information. This means, to wait for all the terminal nodes to finish
 Waiting for all the Terminal nodes to finish allows blocking the execution
 until all the data in the graph has been processed and all the
 previous stages have ended.
+
+## Execution
+
+Running the example in this tutorial should result in a similar output to
+the following:
+
+```
+HI, 1
+HELLO, 1
+HELLO, 2
+HI, 2
+HI, 3
+HELLO, 3
+```
