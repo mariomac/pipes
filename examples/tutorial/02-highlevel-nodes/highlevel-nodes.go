@@ -16,8 +16,12 @@ type StartConfig struct {
 
 // in high-level, even if we don't want to pass configuration, we should
 // create it with at least the instance ID
-type MiddleConfig stage.Instance
-type TerminalConfig stage.Instance
+type MiddleConfig struct {
+	stage.Instance
+}
+type TerminalConfig struct {
+	stage.Instance
+}
 
 type Config struct {
 	graph.Connector // required in high-level api to specify how nodes are connected
@@ -65,8 +69,8 @@ func main() {
 			{Instance: "helloer", Prefix: "Hello"},
 			{Instance: "hier", Prefix: "Hi"},
 		},
-		Middle:   "uppercaser",
-		Terminal: "printer",
+		Middle:   MiddleConfig{"uppercaser"},
+		Terminal: TerminalConfig{"printer"},
 		Connector: graph.Connector{
 			"helloer":    []string{"uppercaser"},
 			"hier":       []string{"uppercaser"},

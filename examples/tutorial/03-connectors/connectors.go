@@ -19,7 +19,9 @@ type GeneratorConfig struct {
 	UpperBound int
 }
 
-type PrinterConfig stage.Instance
+type PrinterConfig struct {
+	stage.Instance
+}
 
 type Config struct {
 	graph.Connector
@@ -68,7 +70,7 @@ func main() {
 			Seed:       time.Now().UnixNano(),
 			Repeat:     5,
 		},
-		Printer: "printer",
+		Printer: PrinterConfig{"printer"},
 		Connector: graph.Connector{
 			"generator": []string{"printer"},
 		},

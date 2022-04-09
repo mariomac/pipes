@@ -113,8 +113,8 @@ func MiddleProvider() node.MiddleFunc[string, string] {
 ```
 
 The function returned by `MiddleProvider()` reads completely the input channel and
-forwards each received function as an input channel. When the Start node that sends
-the data is finished, it will automatically close its output channel (which is the
+forwards each received function as an input channel. Only when all the Start nodes that send
+the data are finished, they will automatically close their output channel (which is the
 input channel of this Middle node). When the Middle node processes all the input,
 the `for` loop will end and the node will finish its execution, also closing its
 output channel.
@@ -186,6 +186,11 @@ start2.SendsTo(middle)
 middle.SendsTo(terminal)
 ```
 
+A node can send data to multiple nodes, and the data will be sent
+once and only once to each destination node. A node can receive data
+from multiple nodes, and its input channel will be automatically closed 
+only when all the sending nodes ended.
+
 To start processing, we need to start all the `Start` nodes. This will
 automatically start the rest of the graph:
 
@@ -194,8 +199,9 @@ start1.Start()
 start2.Start()
 ```
 
-And finally, we need to wait for the graph to completely process all the
-information. This means, to wait for all the terminal nodes to finish
+`Start` methods run in background so we need to make sure we wait for the
+graph end before exiting the program. This means, to wait for all the
+terminal nodes to finish
 (in this case, we will wait for the only terminal node):
 
 ```go

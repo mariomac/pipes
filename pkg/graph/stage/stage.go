@@ -19,18 +19,19 @@ type Instancer interface {
 }
 
 var _ Instancer = (*Instance)(nil)
+var _ Instancer = Instance("")
 
 // StartProvider is a function that, given a configuration argument of a unique type,
 // returns a function fulfilling the node.StartFunc type signature. Returned functions
 // will run inside a Graph Start Node
-type StartProvider[CFG, O any] func(CFG) node.StartFunc[O]
+type StartProvider[CFG Instancer, O any] func(CFG) node.StartFunc[O]
 
 // MiddleProvider is a function that, given a configuration argument of a unique type,
 // returns a function fulfilling the node.MiddleFunc type signature. Returned functions
 // will run inside a Graph Middle Node
-type MiddleProvider[CFG, I, O any] func(CFG) node.MiddleFunc[I, O]
+type MiddleProvider[CFG Instancer, I, O any] func(CFG) node.MiddleFunc[I, O]
 
 // TerminalProvider is a function that, given a configuration argument of a unique type,
 // returns a function fulfilling the node.TerminalFunc type signature. Returned functions
 // will run inside a Graph Terminal Node
-type TerminalProvider[CFG, I any] func(CFG) node.TerminalFunc[I]
+type TerminalProvider[CFG Instancer, I any] func(CFG) node.TerminalFunc[I]

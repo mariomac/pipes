@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# v0.4.1
+* High-Level API: Instancer constraint in Providers' CFG
+
 # v0.4.0
 
 * Autopiping high-level graph API
