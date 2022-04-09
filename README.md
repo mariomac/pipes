@@ -34,68 +34,26 @@ There are three types of nodes:
   another node, but can process it and send the results to outside the graph
   (e.g. memory, storage, web...)
 
-## Example pipeline for the node API
-
-The following pipeline has two Start nodes that send the data to two destination Middle
-nodes (`odds` and `evens`). From there, the data follows their own branches until they
-are eventually joined in the `printer` Terminal node.
-
-Check the complete examples in the [examples/](./examples) folder).
-
-```go
-func main() {
-	// Defining Start, middle and terminal nodes that wrap some functions
-	start1 := node.AsStart(StartCounter)
-	start2 := node.AsStart(StartRandoms)
-	odds := node.AsMiddle(OddFilter)
-	evens := node.AsMiddle(EvenFilter)
-	oddsMsg := node.AsMiddle(Messager("odd number"))
-	evensMsg := node.AsMiddle(Messager("even number"))
-	printer := node.AsTerminal(Printer)
-	
-	// Connecting nodes like:
-	//
-    // start1----\ /---start2
-    //   |        X      |
-    //  evens<---/ \-->odds
-    //   |              |
-    //  evensMsg      oddsMsg
-    //        \       /
-    //         printer
-
-	start1.SendsTo(evens, odds)
-	start2.SendsTo(evens, odds)
-	odds.SendsTo(oddsMsg)
-	evens.SendsTo(evensMsg)
-	oddsMsg.SendsTo(printer)
-	evensMsg.SendsTo(printer)
-
-	// all the Start nodes must be started to
-	// start forwarding data to the rest of the graph
-	start1.Start()
-	start2.Start()
-
-    // We can wait for terminal nodes to finish their execution
-    // after the rest of the graph has finished
-    <-printer.Done()
-}
-```
-
-Output:
-
-```
-even number: 2
-odd number: 847
-odd number: 59
-odd number: 81
-odd number: 81
-even number: 0
-odd number: 3
-odd number: 1
-odd number: 887
-even number: 4
-```
+With the low-level API, you can instantiate each node and connect it manually. It is simple and
+efficient for Graphs whose structure is known at code time.
 
 ## Graph high-level API
 
-TBD
+The High-Level API is aimed for graphs whose structure might be specified at runtime
+(e.g. via a configuration file that specifies which stages are run and how they are connected).
+
+This API allows registering Node Generators and Codecs:
+
+* A **Node Generator** is a function that, given a unique configuration type, returns a function
+  that can go inside a Start, Middle or Terminal Node (as explained in the previous section).
+* A **Codec** is a middle function (this is, it's wrapped into a middle node and receives an input 
+  readable channel and an output writable channel) where input and output belong to different types.
+  A codec will transform the input values to its equivalent in the output type. For example, it
+  could convert JSON strings to a Go map. Codecs allows wiring nodes with different output/input
+  types, and are automatically instantiated when needed.
+
+Given a configuration that contains all the Node configuration types as fields, and a connection map,
+a graph builder will accordingly instantiate all the nodes and codecs (if necessary) and wire them.
+
+For more illustrative examples, check the [graph-autopipe example](./examples/graph-autopipe) and
+the [step-by-step tutorial](./examples/tutorial).

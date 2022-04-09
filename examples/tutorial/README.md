@@ -1,9 +1,11 @@
+# Tutorial
 
-TEMPTATIVE LIST:
+01 - Low-Level API: basic nodes
+02 - High-Level API: basic nodes
+03 - High-Level API: connectors
 
-1- basic lowlevel API
-2- equivalent to 1 in highlevel API
-3- connectors
-4- buffered channels
-5- using HCL as recommended config?
-6- default connections/nodes without IDs? (still to be implemented)
+TO DO:
+
+04- buffered channels
+05- using HCL as recommended config?
+06- default connections/nodes without IDs? (still to be implemented)
