@@ -37,6 +37,9 @@ There are three types of nodes:
 With the low-level API, you can instantiate each node and connect it manually. It is simple and
 efficient for Graphs whose structure is known at code time.
 
+For illustrative examples, you can have a look to the [basic low-level example](./examples/lowlevel-basic) and the [first chapter of the step-by-step tutorial](./examples/tutorial).
+
+
 ## Graph high-level API
 
 The High-Level API is aimed for graphs whose structure might be specified at runtime
