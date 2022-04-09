@@ -20,7 +20,7 @@ A graph is composed by 3 types of nodes:
 Each node runs in its own goroutine, and sends/receives data to/from other
 nodes via Go channels.
 
-The graph of this tutorial example, will have the following graphs (see image below):
+The example graph of this tutorial will have the following nodes (see image below):
 
 ```mermaid
 graph TD
