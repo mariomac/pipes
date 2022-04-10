@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# v0.4.2
+* High-Level API: when the builder can't connect nodes with different types, it returns
+  an error instead of panicking.
 # v0.4.1
 * High-Level API: Instancer constraint in Providers' CFG
 

@@ -189,7 +189,7 @@ func (b *Builder) connect(src, dst string) error {
 	// otherwise, we will add in intermediate codec layer
 	codec, ok := b.newCodec(srcNode.OutType(), dstNode.InType())
 	if !ok {
-		return fmt.Errorf("can't connect %q and %q stages because there isn't registerded"+
+		return fmt.Errorf("can't connect %q and %q stages because there isn't registered"+
 			" any %s -> %s codec", src, dst, srcNode.OutType(), dstNode.InType())
 	}
 	srcSendsToMethod.Call([]reflect.Value{codec})

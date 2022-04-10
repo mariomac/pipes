@@ -5,7 +5,6 @@ import (
 	"reflect"
 
 	"github.com/mariomac/pipes/pkg/graph/stage"
-	"github.com/sirupsen/logrus"
 )
 
 var connectorType = reflect.TypeOf(Connector{})
@@ -49,9 +48,7 @@ func (b *Builder) applyConfig(cfg ConnectedConfig) error {
 	for src, dsts := range cfg.Connections() {
 		for _, dst := range dsts {
 			if err := b.connect(src, dst); err != nil {
-				logrus.WithError(err).
-					WithFields(logrus.Fields{"src": src, "dst": dst}).
-					Fatal("can't connect stages")
+				return err
 			}
 		}
 	}
