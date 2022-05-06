@@ -1,6 +1,6 @@
 # CHANGELOG
 
-# To be released
+# v0.5.0
 * Context propagation. Added: `StartFuncCtx[OUT]` type, `AsStartCtx` function and `StartCtx` method.
 
 # v0.4.2
