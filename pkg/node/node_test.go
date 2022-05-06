@@ -1,6 +1,7 @@
 package node
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -202,6 +203,48 @@ func TestConfigurationOptions_BufferedChannelCommunication(t *testing.T) {
 		require.Fail(t, "timeout while waiting for the terminal node to finish")
 	}
 
+}
+
+func TestContexts(t *testing.T) {
+	endStart, endTerm := make(chan struct{}), make(chan struct{})
+
+	init := AsStartCtx(func(ctx context.Context, out chan<- int) {
+		<-ctx.Done()
+		close(endStart)
+	})
+	term := AsTerminal(func(in <-chan int) {
+		<-in
+		close(endTerm)
+	})
+	init.SendsTo(term)
+	ctx, cancel := context.WithCancel(context.Background())
+	init.StartCtx(ctx)
+
+	// check that, if the context is still open, no channels are closed
+	select {
+	case <-endStart:
+		require.Fail(t, "expected that start node is still running")
+	default: //ok!
+	}
+	select {
+	case <-endTerm:
+		require.Fail(t, "expected that terminal node is still running")
+	default: //ok!
+	}
+
+	cancel()
+
+	// check that, when the context is closed, all channels are closed
+	select {
+	case <-endStart: //ok!
+	case <-time.After(timeout):
+		require.Fail(t, "timeout while waiting for the init node to finish")
+	}
+	select {
+	case <-endTerm:
+		require.Fail(t, "expected that terminal node is still blocked")
+	default: //ok!
+	}
 }
 
 func Counter(from, to int) func(out chan<- int) {

@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# To be released
+* Context propagation. Added: `StartFuncCtx[OUT]` type, `AsStartCtx` function and `StartCtx` method.
+
 # v0.4.2
 * High-Level API: when the builder can't connect nodes with different types, it returns
   an error instead of panicking.
