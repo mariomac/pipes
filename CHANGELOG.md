@@ -1,10 +1,11 @@
 # CHANGELOG
 
-# v0.next
+# v0.6.0
 ## Breaking changes
 * High-level graph API add contexts to the `graph.Run(context.Context)` library, and
 * Start providers in High-level API must return a `StartFuncCtx[OUT]` function instead of a
   `StartFunc[OUT]`
+* In version 1.0 maybe StartFunc is replaced by StartFuncCtx and we force the usage of contexts always
 
 # v0.5.0
 * Context propagation. Added: `StartFuncCtx[OUT]` type, `AsStartCtx` function and `StartCtx` method.

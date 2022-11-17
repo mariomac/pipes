@@ -18,16 +18,16 @@ invoked by the later mentioned **Graph builder** to automatically
 instantiate and connect them.
 
 A **Provider**  is a function that receives a configuration argument
-and will return a `node.StartFunc`, `node.MiddleFunc` or `node.TerminalFunc`. There are three types of node providers:
+and will return a `node.StartFuncCtx`, `node.MiddleFunc` or `node.TerminalFunc`. There are three types of node providers:
 
-* `stage.StartProvider` is a function that, given a configuration argument of a unique type, returns a `node.StartFunc` function.
+* `stage.StartProvider` is a function that, given a configuration argument of a unique type, returns a `node.StartFuncCtx` function.
 * `stage.MiddleProvider` is a function that, given a configuration argument of a unique type, returns a `node.MiddleFunc` function.
 * `stage.TerminalProvider` is a function that, given a configuration argument of a unique type, returns a `node.TerminalFunc` function.
 
 The signatures of the providers ares:
 
 ```go
-type StartProvider[CFG Instancer, O any] func(CFG) node.StartFunc[O]
+type StartProvider[CFG Instancer, O any] func(CFG) node.StartFuncCtx[O]
 type MiddleProvider[CFG Instancer, I, O any] func(CFG) node.MiddleFunc[I, O]
 type TerminalProvider[CFG Instancer, I any] func(CFG) node.TerminalFunc[I]
 ```
@@ -38,8 +38,8 @@ modify the `MiddleProvider` and `TerminalProvider` functions to fulfill
 the `stage.MiddleProvider` and `stage.TerminalProvider` signatures:
 
 ```go
-func StartProvider(cfg StartConfig) node.StartFunc[string] {
-	return func(out chan<- string) {
+func StartProvider(cfg StartConfig) node.StartFuncCtx[string] {
+	return func(_ context.Context, out chan<- string) {
 		out <- cfg.Prefix + ", 1"
 		out <- cfg.Prefix + ", 2"
 		out <- cfg.Prefix + ", 3"
@@ -146,6 +146,20 @@ grp, err := builder.Build(Config{
         "uppercaser": []string{"printer"},
     },
 })
+```
+
+To run the graph, just execute the `Run` method of the graph:
+
+```go
+grp.Run(context.TODO())
+```
+
+The `Run` method blocks the execution of the current goroutine until the graph finishes
+its execution. If you want to keep the execution going, you must run the graph in another
+goroutine:
+
+```go
+grp.Run(context.TODO())
 ```
 
 The above configuration will build a graph equivalent to the graph of the previous

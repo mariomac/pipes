@@ -2,13 +2,15 @@ package main
 
 import (
 	"bufio"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"context"
 	"net/http"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAutopipe(t *testing.T) {
@@ -20,7 +22,7 @@ func TestAutopipe(t *testing.T) {
 		os.Stdout = old
 	}()
 	g := BuildGraph("./nodes.hcl")
-	go g.Run()
+	go g.Run(context.Background())
 
 	waitForServer(t, 5*time.Second)
 	c := http.Client{}

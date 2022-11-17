@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -29,8 +30,8 @@ type Config struct {
 	Printer   PrinterConfig
 }
 
-func Generator(cfg GeneratorConfig) node.StartFunc[int] {
-	return func(out chan<- int) {
+func Generator(cfg GeneratorConfig) node.StartFuncCtx[int] {
+	return func(_ context.Context, out chan<- int) {
 		rand.Seed(cfg.Seed)
 		for n := 0; n < cfg.Repeat; n++ {
 			out <- cfg.LowerBound + rand.Intn(cfg.UpperBound-cfg.LowerBound)
@@ -78,5 +79,5 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	grp.Run()
+	grp.Run(context.TODO())
 }

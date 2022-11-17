@@ -63,8 +63,8 @@ type GeneratorConfig struct {
 	UpperBound int
 }
 
-func Generator(cfg GeneratorConfig) node.StartFunc[int] {
-	return func(out chan<- int) {
+func Generator(cfg GeneratorConfig) node.StartFuncCtx[int] {
+	return func(_ context.Background, out chan<- int) {
 		rand.Seed(cfg.Seed)
 		for n := 0; n < cfg.Repeat; n++ {
 			out <- cfg.LowerBound + rand.Intn(cfg.UpperBound-cfg.LowerBound)
@@ -156,7 +156,7 @@ graph.RegisterTerminal(gb, Printer)
 graph.RegisterCodec(gb, IntStringCodec)
 ```
 
-Now, the `Build` method will succeed and running the graph (`grp.Run()` in
+Now, the `Build` method will succeed and running the graph (`grp.Run(ctx)` in
 the [example code](codecs.go)) should print something similar to:
 
 ```

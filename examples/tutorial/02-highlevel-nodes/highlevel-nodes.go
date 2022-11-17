@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -30,8 +31,8 @@ type Config struct {
 	Terminal        TerminalConfig
 }
 
-func StartProvider(cfg StartConfig) node.StartFunc[string] {
-	return func(out chan<- string) {
+func StartProvider(cfg StartConfig) node.StartFuncCtx[string] {
+	return func(_ context.Context, out chan<- string) {
 		out <- cfg.Prefix + ", 1"
 		out <- cfg.Prefix + ", 2"
 		out <- cfg.Prefix + ", 3"
@@ -81,5 +82,5 @@ func main() {
 		panic(err)
 	}
 	// graph.Run it's blocking and won't continue until the graph stopped processing
-	grp.Run()
+	grp.Run(context.TODO())
 }

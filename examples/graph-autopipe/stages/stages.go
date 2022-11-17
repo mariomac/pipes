@@ -1,10 +1,12 @@
 package stages
 
 import (
+	"context"
 	"fmt"
-	"github.com/mariomac/pipes/pkg/graph/stage"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/mariomac/pipes/pkg/graph/stage"
 
 	"github.com/mariomac/pipes/pkg/node"
 	"github.com/sirupsen/logrus"
@@ -20,13 +22,13 @@ type Http struct {
 
 // HttpIngestProvider listens for HTTP connections and forwards them. The instantiator
 // needs to receive a stage.Http instance.
-var HttpIngestProvider = func(c Http) node.StartFunc[[]byte] {
+var HttpIngestProvider = func(c Http) node.StartFuncCtx[[]byte] {
 	port := c.Port
 	if port == 0 {
 		port = defaultPort
 	}
 	log := logrus.WithField("component", "HttpIngest")
-	return func(out chan<- []byte) {
+	return func(_ context.Context, out chan<- []byte) {
 		err := http.ListenAndServe(fmt.Sprintf(":%d", port),
 			http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 				if request.Method != http.MethodPost {

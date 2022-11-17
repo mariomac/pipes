@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"os"
@@ -50,5 +51,5 @@ func main() {
 		os.Exit(-1)
 	}
 	p := BuildGraph(*graphFile)
-	p.Run()
+	p.Run(context.Background())
 }
