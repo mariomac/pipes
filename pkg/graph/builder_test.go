@@ -2,6 +2,7 @@ package graph
 
 import (
 	"context"
+	"strconv"
 	"testing"
 	"time"
 
@@ -50,4 +51,74 @@ func TestOptions_BufferLen(t *testing.T) {
 	case <-time.After(timeout):
 		assert.Fail(t, "timeout! the terminal channel is not buffered")
 	}
+}
+
+func TestCodecs(t *testing.T) {
+	b := NewBuilder()
+	// int 2 string codec
+	RegisterCodec(b, func(in <-chan int, out chan<- string) {
+		for i := range in {
+			out <- strconv.Itoa(i)
+		}
+	})
+	// string 2 int codec
+	RegisterCodec(b, func(in <-chan string, out chan<- int) {
+		for i := range in {
+			o, err := strconv.Atoi(i)
+			if err != nil {
+				panic(err)
+			}
+			out <- o
+		}
+	})
+	type stCfg struct{}
+	RegisterStart(b, func(_ stCfg) node.StartFuncCtx[string] {
+		return func(_ context.Context, out chan<- string) {
+			out <- "1"
+			out <- "2"
+			out <- "3"
+		}
+	})
+	type midCfg struct{}
+	RegisterMiddle(b, func(_ midCfg) node.MiddleFunc[int, int] {
+		return func(in <-chan int, out chan<- int) {
+			for i := range in {
+				out <- i * 2
+			}
+		}
+	})
+	type termCfg struct{}
+	arr := make([]string, 0, 3)
+	done := make(chan struct{})
+	RegisterTerminal(b, func(_ termCfg) node.TerminalFunc[string] {
+		return func(in <-chan string) {
+			for i := range in {
+				arr = append(arr, i)
+			}
+			close(done)
+		}
+	})
+
+	type cfg struct {
+		St   stCfg   `nodeId:"st"`
+		Mid  midCfg  `nodeId:"mid"`
+		Term termCfg `nodeId:"term"`
+		Connector
+	}
+	g, err := b.Build(cfg{Connector: Connector{
+		"st":  []string{"mid"},
+		"mid": []string{"term"},
+	}})
+	require.NoError(t, err)
+
+	go g.Run(context.Background())
+	select {
+	case <-done:
+		//ok!
+	case <-time.After(timeout):
+		assert.Fail(t, "timeout while waiting for the graph to finish its execution")
+	}
+
+	assert.Equal(t, []string{"2", "4", "6"}, arr)
+
 }

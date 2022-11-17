@@ -68,12 +68,12 @@ func (b *Builder) applyConfigReflect(cfgValue reflect.Value) error {
 		fieldVal := cfgValue.Field(f)
 		if fieldVal.Type().Kind() == reflect.Array || fieldVal.Type().Kind() == reflect.Slice {
 			for nf := 0; nf < fieldVal.Len(); nf++ {
-				if err := b.applyField(fieldVal.Index(nf)); err != nil {
+				if err := b.applyField(field, fieldVal.Index(nf)); err != nil {
 					return err
 				}
 			}
 		} else {
-			if err := b.applyField(cfgValue.Field(f)); err != nil {
+			if err := b.applyField(field, cfgValue.Field(f)); err != nil {
 				return err
 			}
 		}
@@ -81,16 +81,29 @@ func (b *Builder) applyConfigReflect(cfgValue reflect.Value) error {
 	return nil
 }
 
-func (b *Builder) applyField(field reflect.Value) error {
-	instancer, ok := field.Interface().(stage.Instancer)
-	if !ok {
-		// if it does not implement the instancer interface, let's check if it can be converted
-		// to the convenience stage.Instance type
-		if !field.Type().ConvertibleTo(graphInstanceType) {
-			return fmt.Errorf("field of type %s should provide an 'ID() InstanceID' method."+
-				" Did you forgot to embed the stage.Instance field? ", field.Type())
-		}
-		instancer = field.Convert(graphInstanceType).Interface().(stage.Instance)
+// applies the field given an ID in the following order (from high priority to overridable lower):
+// 1- The result of the ID() method if the configuration implements stage.Instancer
+// 2- The ID specified by the stage.Instance embedded type, if any
+// 3- The result of the `nodeId` embedded tag in the struct
+// otherwise it throws a runtime error
+func (b *Builder) applyField(fieldType reflect.StructField, fieldVal reflect.Value) error {
+	if instancer, ok := fieldVal.Interface().(stage.Instancer); ok {
+		return instantiate(b, instancer.ID(), fieldVal)
 	}
-	return instantiate(b, instancer.ID(), field)
+
+	// if it does not implement the instancer interface, let's check if it can be converted
+	// to the convenience stage.Instance type
+	if fieldVal.Type().ConvertibleTo(graphInstanceType) {
+		instancer := fieldVal.Convert(graphInstanceType).Interface().(stage.Instance)
+		return instantiate(b, instancer.ID(), fieldVal)
+	}
+
+	// Otherwise, let's check for the nodeId embedded tag in the struct if any
+	if instanceID, ok := fieldType.Tag.Lookup(nodeIdTag); ok {
+		return instantiate(b, instanceID, fieldVal)
+	}
+
+	return fmt.Errorf("field of type %s should provide an 'ID() InstanceID' method or be tagged"+
+		" with a `nodeId` tag in the configuration struct. Please provide a `nodeId` tag or e.g."+
+		" embed the stage.Instance field", fieldVal.Type())
 }

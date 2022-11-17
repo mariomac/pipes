@@ -8,6 +8,10 @@ import (
 	"github.com/mariomac/pipes/pkg/node"
 )
 
+const (
+	nodeIdTag = "nodeId"
+)
+
 type codecKey struct {
 	In  reflect.Type
 	Out reflect.Type
@@ -80,7 +84,9 @@ func RegisterCodec[I, O any](nb *Builder, middleFunc node.MiddleFunc[I, O]) {
 // RegisterStart registers a stage.StartProvider into the graph builder. When the Build
 // method is invoked later, any configuration field associated with the StartProvider will
 // result in the instantiation of a node.StartCtx with the provider's returned function.
-func RegisterStart[CFG stage.Instancer, O any](nb *Builder, b stage.StartProvider[CFG, O]) {
+// The passed configuration type must either implement the stage.Instancer interface or the
+// configuration struct containing it must define a `nodeId` tag with an identifier for that stage.
+func RegisterStart[CFG, O any](nb *Builder, b stage.StartProvider[CFG, O]) {
 	nb.startProviders[typeOf[CFG]()] = [2]reflect.Value{
 		reflect.ValueOf(node.AsStartCtx[O]),
 		reflect.ValueOf(b),
@@ -90,7 +96,9 @@ func RegisterStart[CFG stage.Instancer, O any](nb *Builder, b stage.StartProvide
 // RegisterMiddle registers a stage.MiddleProvider into the graph builder. When the Build
 // method is invoked later, any configuration field associated with the MiddleProvider will
 // result in the instantiation of a node.Middle with the provider's returned function.
-func RegisterMiddle[CFG stage.Instancer, I, O any](nb *Builder, b stage.MiddleProvider[CFG, I, O]) {
+// The passed configuration type must either implement the stage.Instancer interface or the
+// configuration struct containing it must define a `nodeId` tag with an identifier for that stage.
+func RegisterMiddle[CFG, I, O any](nb *Builder, b stage.MiddleProvider[CFG, I, O]) {
 	nb.middleProviders[typeOf[CFG]()] = [2]reflect.Value{
 		reflect.ValueOf(node.AsMiddle[I, O]),
 		reflect.ValueOf(b),
@@ -100,7 +108,9 @@ func RegisterMiddle[CFG stage.Instancer, I, O any](nb *Builder, b stage.MiddlePr
 // RegisterTerminal registers a stage.TerminalProvider into the graph builder. When the Build
 // method is invoked later, any configuration field associated with the TerminalProvider will
 // result in the instantiation of a node.Terminal with the provider's returned function.
-func RegisterTerminal[CFG stage.Instancer, I any](nb *Builder, b stage.TerminalProvider[CFG, I]) {
+// The passed configuration type must either implement the stage.Instancer interface or the
+// configuration struct containing it must define a `nodeId` tag with an identifier for that stage.
+func RegisterTerminal[CFG, I any](nb *Builder, b stage.TerminalProvider[CFG, I]) {
 	nb.terminalProviders[typeOf[CFG]()] = [2]reflect.Value{
 		reflect.ValueOf(node.AsTerminal[I]),
 		reflect.ValueOf(b),
