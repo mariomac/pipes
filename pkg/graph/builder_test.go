@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -26,8 +27,8 @@ func TestOptions_BufferLen(t *testing.T) {
 	}
 	nb := NewBuilder(node.ChannelBufferLen(2))
 	startEnded := make(chan struct{})
-	RegisterStart(nb, func(cfg startConfig) node.StartFunc[int] {
-		return func(out chan<- int) {
+	RegisterStart(nb, func(cfg startConfig) node.StartFuncCtx[int] {
+		return func(_ context.Context, out chan<- int) {
 			out <- 1
 			out <- 2
 			close(startEnded)
@@ -42,7 +43,7 @@ func TestOptions_BufferLen(t *testing.T) {
 		Connector: map[string][]string{"1": {"2"}},
 	})
 	require.NoError(t, err)
-	go graph.Run()
+	go graph.Run(context.Background())
 	select {
 	case <-startEnded:
 		//ok!

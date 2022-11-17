@@ -30,7 +30,7 @@ type inOutTyper interface {
 // its stages given a name and a type, as well as connect them. If two connected stages have
 // incompatible types, it will insert a codec in between to translate between the stage types
 type Builder struct {
-	startProviders    map[reflect.Type][2]reflect.Value //0: reflect.ValueOf(node.AsStart[I, O]), 1: reflect.ValueOf(startfunc)
+	startProviders    map[reflect.Type][2]reflect.Value //0: reflect.ValueOf(node.AsStartCtx[I, O]), 1: reflect.ValueOf(startfunc)
 	middleProviders   map[reflect.Type][2]reflect.Value
 	terminalProviders map[reflect.Type][2]reflect.Value
 	// keys: instance IDs
@@ -54,7 +54,7 @@ func NewBuilder(options ...node.Option) *Builder {
 		startProviders:    map[reflect.Type][2]reflect.Value{}, // stage.StartProvider
 		middleProviders:   map[reflect.Type][2]reflect.Value{}, // stage.MiddleProvider{},
 		terminalProviders: map[reflect.Type][2]reflect.Value{}, // stage.TerminalProvider{},
-		ingests:           map[string]outTyper{},               // *node.Start
+		ingests:           map[string]outTyper{},               // *node.StartCtx
 		transforms:        map[string]inOutTyper{},             // *node.Middle
 		exports:           map[string]inTyper{},                // *node.Terminal
 		connects:          map[string][]string{},
@@ -79,10 +79,10 @@ func RegisterCodec[I, O any](nb *Builder, middleFunc node.MiddleFunc[I, O]) {
 
 // RegisterStart registers a stage.StartProvider into the graph builder. When the Build
 // method is invoked later, any configuration field associated with the StartProvider will
-// result in the instantiation of a node.Start with the provider's returned function.
+// result in the instantiation of a node.StartCtx with the provider's returned function.
 func RegisterStart[CFG stage.Instancer, O any](nb *Builder, b stage.StartProvider[CFG, O]) {
 	nb.startProviders[typeOf[CFG]()] = [2]reflect.Value{
-		reflect.ValueOf(node.AsStart[O]),
+		reflect.ValueOf(node.AsStartCtx[O]),
 		reflect.ValueOf(b),
 	}
 }
@@ -107,7 +107,7 @@ func RegisterTerminal[CFG stage.Instancer, I any](nb *Builder, b stage.TerminalP
 	}
 }
 
-// Build creates a Graph where each node corresponds to a field in the passed Configuration struct.
+// Build creates a Graph where each node corresponds to a field in the provided Configuration struct.
 // The nodes will be connected according to the ConnectedConfig "source" --> ["destination"...] map.
 func (b *Builder) Build(cfg ConnectedConfig) (Graph, error) {
 	g := Graph{}
@@ -133,7 +133,7 @@ func instantiate(nb *Builder, instanceID string, arg reflect.Value) error {
 	if ib, ok := nb.startProviders[arg.Type()]; ok {
 		// providedFunc = StartProvider(arg)
 		providedFunc := ib[1].Call(rargs)
-		// startNode = AsStart(providedFunc, nb.options...)
+		// startNode = AsStartCtx(providedFunc, nb.options...)
 		startNode := ib[0].Call(providedFunc)
 		nb.ingests[instanceID] = startNode[0].Interface().(outTyper)
 		return nil

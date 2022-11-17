@@ -22,9 +22,9 @@ var _ Instancer = (*Instance)(nil)
 var _ Instancer = Instance("")
 
 // StartProvider is a function that, given a configuration argument of a unique type,
-// returns a function fulfilling the node.StartFunc type signature. Returned functions
+// returns a function fulfilling the node.StartFuncCtx type signature. Returned functions
 // will run inside a Graph Start Node
-type StartProvider[CFG Instancer, O any] func(CFG) node.StartFunc[O]
+type StartProvider[CFG Instancer, O any] func(CFG) node.StartFuncCtx[O]
 
 // MiddleProvider is a function that, given a configuration argument of a unique type,
 // returns a function fulfilling the node.MiddleFunc type signature. Returned functions

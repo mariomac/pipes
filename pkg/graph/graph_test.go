@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -18,27 +19,17 @@ func TestBasic(t *testing.T) {
 		From int
 		To   int
 	}
-	type DoublerCfg struct {
-		stage.Instance
-	}
-	type MapperCfg struct {
-		stage.Instance
-		Dst map[int]struct{}
-	}
-	type config struct {
-		Starts []CounterCfg
-		Middle DoublerCfg
-		Term   []MapperCfg
-		Connector
-	}
-
-	RegisterStart(b, func(cfg CounterCfg) node.StartFunc[int] {
-		return func(out chan<- int) {
+	RegisterStart(b, func(cfg CounterCfg) node.StartFuncCtx[int] {
+		return func(_ context.Context, out chan<- int) {
 			for i := cfg.From; i <= cfg.To; i++ {
 				out <- i
 			}
 		}
 	})
+
+	type DoublerCfg struct {
+		stage.Instance
+	}
 	RegisterMiddle(b, func(_ DoublerCfg) node.MiddleFunc[int, int] {
 		return func(in <-chan int, out chan<- int) {
 			for n := range in {
@@ -46,6 +37,11 @@ func TestBasic(t *testing.T) {
 			}
 		}
 	})
+
+	type MapperCfg struct {
+		stage.Instance
+		Dst map[int]struct{}
+	}
 	RegisterTerminal(b, func(cfg MapperCfg) node.TerminalFunc[int] {
 		return func(in <-chan int) {
 			for n := range in {
@@ -54,6 +50,12 @@ func TestBasic(t *testing.T) {
 		}
 	})
 
+	type config struct {
+		Starts []CounterCfg
+		Middle DoublerCfg
+		Term   []MapperCfg
+		Connector
+	}
 	map1, map2 := map[int]struct{}{}, map[int]struct{}{}
 	g, err := b.Build(config{
 		Starts: []CounterCfg{
@@ -63,7 +65,7 @@ func TestBasic(t *testing.T) {
 		Term: []MapperCfg{
 			{Dst: map1, Instance: "m1"},
 			{Dst: map2, Instance: "m2"}},
-		Connector: map[string][]string{
+		Connector: Connector{
 			"c1": {"d"},
 			"c2": {"d"},
 			"d":  {"m1", "m2"},
@@ -73,7 +75,7 @@ func TestBasic(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		g.Run()
+		g.Run(context.Background())
 		close(done)
 	}()
 	select {
@@ -84,4 +86,89 @@ func TestBasic(t *testing.T) {
 
 	assert.Equal(t, map[int]struct{}{2: {}, 4: {}, 6: {}, 8: {}, 10: {}, 12: {}, 14: {}, 16: {}}, map1)
 	assert.Equal(t, map1, map2)
+}
+
+func TestContext(t *testing.T) {
+	b := NewBuilder()
+
+	type ReceiverCfg struct {
+		stage.Instance
+		Input chan int
+	}
+	RegisterStart(b, func(cfg ReceiverCfg) node.StartFuncCtx[int] {
+		return func(ctx context.Context, out chan<- int) {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case i := <-cfg.Input:
+					out <- i
+				}
+			}
+		}
+	})
+
+	type ForwarderCfg struct {
+		stage.Instance
+		Out chan int
+	}
+	allClosed := make(chan struct{})
+	RegisterTerminal(b, func(cfg ForwarderCfg) node.TerminalFunc[int] {
+		return func(in <-chan int) {
+			for n := range in {
+				cfg.Out <- n
+			}
+			close(allClosed)
+		}
+	})
+	type config struct {
+		Starts []ReceiverCfg
+		Term   ForwarderCfg
+		Connector
+	}
+	cfg := config{
+		Starts: []ReceiverCfg{
+			{Instance: "start1", Input: make(chan int, 10)},
+			{Instance: "start2", Input: make(chan int, 10)},
+		},
+		Term: ForwarderCfg{Instance: "end", Out: make(chan int)},
+		Connector: Connector{
+			"start1": []string{"end"},
+			"start2": []string{"end"},
+		},
+	}
+	g, err := b.Build(&cfg)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go g.Run(ctx)
+
+	// The graph works normally
+	cfg.Starts[0].Input <- 123
+	select {
+	case o := <-cfg.Term.Out:
+		assert.Equal(t, 123, o)
+	case <-time.After(timeout):
+		assert.Fail(t, "timeout while waiting for graph to forward items")
+	}
+	cfg.Starts[1].Input <- 456
+	select {
+	case o := <-cfg.Term.Out:
+		assert.Equal(t, 456, o)
+	case <-time.After(timeout):
+		assert.Fail(t, "timeout while waiting for graph to forward items")
+	}
+
+	// after canceling context, the graph should not forward anything
+	cancel()
+
+	cfg.Starts[0].Input <- 789
+	cfg.Starts[1].Input <- 101
+	select {
+	case o := <-cfg.Term.Out:
+		assert.Failf(t, "graph should have been stopped", "unexpected output of the graph: %v", o)
+	default:
+		// OK!
+	}
+
 }
