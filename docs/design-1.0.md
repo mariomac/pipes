@@ -2,6 +2,13 @@
 
 For a future 1.0 version. Includes breaking changes with current API.
 
+## Assumptions
+
+Each graph must instantiate at least one start node.
+
+Each graph must instantiate at least one terminal node.
+
+
 ## Explicit modes
 
 In explicit modes, each node has an explicit ID and destination node.
@@ -27,8 +34,8 @@ graph LR;
 ```go
 type MyGraph struct {
     Start StartNode `nodeId:"start" sendsTo:"mid1,mid2"`
-    Mid1   MidNode  `nodeId:"mid1" sendsTo:"term"`
-    Mid2   MidNode  `nodeId:"mid2" sendsTo:"term"`
+    Mid1  MidNode  `nodeId:"mid1" sendsTo:"term"`
+    Mid2  MidNode  `nodeId:"mid2" sendsTo:"term"`
     Term  TermNode  `nodeId:"term"`
 }
 ```
@@ -41,6 +48,36 @@ graph LR;
     mid2 --> term
 ```
 
+### Optional elements
+
+Any sender is nillable. 
+A sender would throw runtime error if all its receivers are nil.
+
+E.g:
+```go
+type MyGraph struct {
+    Start StartNode `nodeId:"start" sendsTo:"mid1,mid2"`
+    Mid1  *MidNode  `nodeId:"mid1" sendsTo:"term"`
+    Mid2  *MidNode  `nodeId:"mid2" sendsTo:"term"`
+    Term  TermNode  `nodeId:"term"`
+}
+```
+
+This config will work:
+```go
+MyGraph {
+    Mid1: &MidNode{}
+    Mid2: nil,
+}
+```
+(Start node can send through mid1 despite mid2 is nil).
+
+This config wil fail:
+```go
+MyGraph { Mid1: nil, Mid2: nil}
+```
+
+As `start` node can't send data to any of their destinations.
 
 
 ### Allow user configuring the node and destination IDs
@@ -124,6 +161,9 @@ graph LR;
 
 ### Sharing nodeId in array
 
+**ON HOLD**: probably there is no need for this as semantically different nodes
+would have different configuration definitions.
+
 A "nodeId" tagging an array of nodes makes all the nodes to share de ID.
 
 E.g.:
@@ -148,7 +188,7 @@ Would generate:
 
 ```mermaid
 graph LR;
-    start --> m0[mid]
+    start --> m0["mid"]
     start --> m1[mid]
     start --> m2[mid]
     m0 --> term
@@ -158,11 +198,29 @@ graph LR;
 
 ### Sequential array
 
+**ON HOLD**: probably there is no need for this as semantically different nodes
+would have different configuration definitions.
+
 A `sequential` tag would make each node defined in an array to send data to the next element in the array.
 
 If the tagged node is Middle or Terminal, the first element in the array would get the `nodeId`.
 
 If the tagged node is Start or Middle, the last element of the array would forward the data to the `sendsTo` node.
 
-TODO:
+If we tag the previous example with `sequential` in the
 
+```go
+type MyGraph struct {
+    Start StartNode `nodeId:"start" sendsTo:"mid"`
+    Mids  []MidNode `sequential nodeId:"mid" sendsTo:"output"`
+    Term  TermNode `nodeId:"term"`
+}
+```
+
+```mermaid
+graph LR;
+    start --> m0[mid]
+    m0 --> m1[mid]
+    m1 --> m2[mid]
+    m2 --> term
+```
