@@ -241,9 +241,9 @@ func TestContexts(t *testing.T) {
 		require.Fail(t, "timeout while waiting for the init node to finish")
 	}
 	select {
-	case <-endTerm:
-		require.Fail(t, "expected that terminal node is still blocked")
-	default: //ok!
+	case <-endTerm: //ok!
+	case <-time.After(timeout):
+		require.Fail(t, "timeout while waiting for the term node to finish")
 	}
 }
 
