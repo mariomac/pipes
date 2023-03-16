@@ -379,3 +379,78 @@ func TestSendsTo_WrongAnnotations(t *testing.T) {
 	_, err = b.Build(config6{})
 	assert.Error(t, err)
 }
+
+type EnableCfg struct {
+	Enable bool
+	Add    int
+}
+
+var _ stage.Enabler = (*EnableCfg)(nil)
+
+func (t EnableCfg) Enabled() bool {
+	return t.Enable
+}
+
+func TestEnabled(t *testing.T) {
+	b := NewBuilder()
+
+	type CounterCfg struct {
+		From int
+		To   int
+	}
+	RegisterStart(b, func(cfg CounterCfg) node.StartFuncCtx[int] {
+		return func(_ context.Context, out chan<- int) {
+			for i := cfg.From; i <= cfg.To; i++ {
+				out <- i
+			}
+		}
+	})
+
+	RegisterMiddle(b, func(c EnableCfg) node.MiddleFunc[int, int] {
+		return func(in <-chan int, out chan<- int) {
+			for n := range in {
+				out <- c.Add + n*2
+			}
+		}
+	})
+
+	type MapperCfg struct {
+		Dst map[int]struct{}
+	}
+	RegisterTerminal(b, func(cfg MapperCfg) node.TerminalFunc[int] {
+		return func(in <-chan int) {
+			for n := range in {
+				cfg.Dst[n] = struct{}{}
+			}
+		}
+	})
+
+	type config struct {
+		Starts  CounterCfg `nodeId:"s" sendsTo:"m1,m2"`
+		Middle1 EnableCfg  `nodeId:"m1" sendsTo:"t"`
+		Middle2 EnableCfg  `nodeId:"m2" sendsTo:"t"`
+		Term    MapperCfg  `nodeId:"t"`
+	}
+
+	map1 := map[int]struct{}{}
+	g, err := b.Build(config{
+		Starts:  CounterCfg{From: 1, To: 5},
+		Middle1: EnableCfg{Enable: true, Add: 10},
+		Middle2: EnableCfg{Enable: false, Add: 100},
+		Term:    MapperCfg{Dst: map1},
+	})
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+	go func() {
+		g.Run(context.Background())
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		require.Fail(t, "timeout while waiting for graph to complete")
+	}
+
+	assert.Equal(t, map[int]struct{}{12: {}, 14: {}, 16: {}, 18: {}, 20: {}}, map1)
+}

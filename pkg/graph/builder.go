@@ -49,6 +49,8 @@ type Builder struct {
 	// used to check unconnected nodes
 	inNodeNames  map[string]struct{}
 	outNodeNames map[string]struct{}
+	// used to avoid failing a "sendsTo" annotation pointing to a disabled node
+	disabledNodes map[string]struct{}
 }
 
 // NewBuilder instantiates a Graph Builder with the default configuration, which can be overridden via the
@@ -70,6 +72,7 @@ func NewBuilder(options ...node.Option) *Builder {
 		options:           optVals,
 		inNodeNames:       map[string]struct{}{},
 		outNodeNames:      map[string]struct{}{},
+		disabledNodes:     map[string]struct{}{},
 	}
 }
 
@@ -208,6 +211,14 @@ func (b *Builder) connect(src, dst string) error {
 	// they have been already connected
 	delete(b.inNodeNames, dst)
 	delete(b.outNodeNames, src)
+	// Ignore disabled nodes, as they are disabled by the user
+	// despite the connection is hardcoded in the nodeId, sendsTo tags
+	if _, ok := b.disabledNodes[dst]; ok {
+		return nil
+	}
+	if _, ok := b.disabledNodes[src]; ok {
+		return nil
+	}
 
 	// find source and destination stages
 	var srcNode outTyper

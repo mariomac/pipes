@@ -103,33 +103,41 @@ func (b *Builder) applyConfigReflect(cfgValue reflect.Value, conns map[string][]
 // 3- The result of the `nodeId` embedded tag in the struct
 // otherwise it throws a runtime error
 func (b *Builder) applyField(fieldType reflect.StructField, fieldVal reflect.Value, conns map[string][]string) error {
+	var instanceID string
+
+	if instancer, ok := fieldVal.Interface().(stage.Instancer); ok {
+		instanceID = instancer.ID()
+	} else if fieldVal.Type().ConvertibleTo(graphInstanceType) {
+		// if it does not implement the instancer interface, let's check if it can be converted
+		// to the convenience stage.Instance type
+		// TODO: if it implements it as a pointer but it is a value, try getting a pointer as we do later with Enabler
+		instanceID = fieldVal.Convert(graphInstanceType).Interface().(stage.Instance).ID()
+	} else if instanceID, ok = fieldType.Tag.Lookup(nodeIdTag); !ok {
+		// Otherwise, let's check for the nodeId embedded tag in the struct if any
+		// But fail if it is not possible
+		return fmt.Errorf("field of type %s should provide an 'ID() InstanceID' method or be tagged"+
+			" with a `nodeId` tag in the configuration struct. Please provide a `nodeId` tag or e.g."+
+			" embed the stage.Instance field", fieldVal.Type())
+	}
+
 	// checks if it has a sendsTo annotation and update the connections map accordingly
-	var updateAnnotatedDestinations = func(instanceID string) {
-		if dstNode, ok := fieldType.Tag.Lookup(sendsToTag); ok {
-			conns[instanceID] = strings.Split(dstNode, ",")
+	if dstNode, ok := fieldType.Tag.Lookup(sendsToTag); ok {
+		conns[instanceID] = strings.Split(dstNode, ",")
+	}
+
+	// Ignore the config field if it is not enabled
+	enabler, ok := fieldVal.Interface().(stage.Enabler)
+	// In case the implementation receiver is a value but the field is a pointer, we
+	// try also with the value
+	if !ok && fieldVal.Kind() == reflect.Pointer {
+		enabler, ok = fieldVal.Elem().Interface().(stage.Enabler)
+	}
+	if ok {
+		if !enabler.Enabled() {
+			b.disabledNodes[instanceID] = struct{}{}
+			return nil
 		}
 	}
 
-	if instancer, ok := fieldVal.Interface().(stage.Instancer); ok {
-		updateAnnotatedDestinations(instancer.ID())
-		return instantiate(b, instancer.ID(), fieldVal)
-	}
-
-	// if it does not implement the instancer interface, let's check if it can be converted
-	// to the convenience stage.Instance type
-	if fieldVal.Type().ConvertibleTo(graphInstanceType) {
-		instancer := fieldVal.Convert(graphInstanceType).Interface().(stage.Instance)
-		updateAnnotatedDestinations(instancer.ID())
-		return instantiate(b, instancer.ID(), fieldVal)
-	}
-
-	// Otherwise, let's check for the nodeId embedded tag in the struct if any
-	if instanceID, ok := fieldType.Tag.Lookup(nodeIdTag); ok {
-		updateAnnotatedDestinations(instanceID)
-		return instantiate(b, instanceID, fieldVal)
-	}
-
-	return fmt.Errorf("field of type %s should provide an 'ID() InstanceID' method or be tagged"+
-		" with a `nodeId` tag in the configuration struct. Please provide a `nodeId` tag or e.g."+
-		" embed the stage.Instance field", fieldVal.Type())
+	return instantiate(b, instanceID, fieldVal)
 }

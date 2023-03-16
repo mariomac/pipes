@@ -18,6 +18,15 @@ type Instancer interface {
 	ID() string
 }
 
+// Enabler is an optional interface that tells whether a node is enabled. If the node
+// config implements it and Enabled() is false, the node won't be added to the graph.
+// This is useful for non-nillable configurations that need to be disabled if e.g.
+// a property is missing.
+// IMPORTANT: The method needs to be implemented by using a value as receiver.
+type Enabler interface {
+	Enabled() bool
+}
+
 var _ Instancer = (*Instance)(nil)
 var _ Instancer = Instance("")
 
