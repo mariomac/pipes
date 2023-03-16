@@ -3,6 +3,10 @@
 # v0.NEXT
 * High-level API nodes do not need to implement `Instancer` if you define a `nodeId` tag in the
   config struct that defines them.
+* Graph configs does not need to implement `ConnectedConfig` interface if their properties define the
+  `sendsTo` configuration.
+* Graph builder returns error if nodes remain unconnected
+* Graph builder returns error if a node sends data to itself
 
 ## Breaking changes
 * High-level graph API add contexts to the `graph.Run(context.Context)` library, and
@@ -10,10 +14,6 @@
   `StartFunc[OUT]`
 * In version 1.0 maybe StartFunc is replaced by StartFuncCtx and we force the usage of contexts always
 
-## TO DO
-* Allow also an `instanceId` field inside the struct so any string or stringer can be marked
-as InstanceId without needing to provide an `ID` implementor.
-* Allow that all nodes sharing a nodeId can treated as a group for sending/receiving in the connector info
 
 # v0.5.0
 * Context propagation. Added: `StartFuncCtx[OUT]` type, `AsStartCtx` function and `StartCtx` method.

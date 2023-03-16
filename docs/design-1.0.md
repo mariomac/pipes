@@ -29,6 +29,19 @@ graph LR;
     mid --> term
 ```
 
+### Mixed with user-provided connections
+
+```go
+type MyGraph struct {
+    Start StartNode `nodeId:"start" sendsTo:"mid"`
+    Mid   MidNode   `nodeId:"mid" sendsTo:"term"`
+    Term  TermNode  `nodeId:"term"`
+    Connector
+}
+```
+
+The user-provided `Connector` would override any explicit, annotated definition.
+
 ### Basic, sending to multiple nodes
 
 ```go
@@ -51,7 +64,8 @@ graph LR;
 ### Optional elements
 
 Any sender is nillable. 
-A sender would throw runtime error if all its receivers are nil.
+A sender would throw runtime error if all its receivers are nil, but some of them
+can be nul (optional).
 
 E.g:
 ```go

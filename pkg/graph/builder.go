@@ -3,13 +3,15 @@ package graph
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/mariomac/pipes/pkg/graph/stage"
 	"github.com/mariomac/pipes/pkg/node"
 )
 
 const (
-	nodeIdTag = "nodeId"
+	nodeIdTag  = "nodeId"
+	sendsToTag = "sendsTo"
 )
 
 type codecKey struct {
@@ -44,6 +46,9 @@ type Builder struct {
 	connects   map[string][]string
 	codecs     map[codecKey][2]reflect.Value // 0: reflect.ValueOf(node.AsMiddle[I,O]), 1: reflect.ValueOf(middleFunc[I, O])
 	options    []reflect.Value
+	// used to check unconnected nodes
+	inNodeNames  map[string]struct{}
+	outNodeNames map[string]struct{}
 }
 
 // NewBuilder instantiates a Graph Builder with the default configuration, which can be overridden via the
@@ -63,6 +68,8 @@ func NewBuilder(options ...node.Option) *Builder {
 		exports:           map[string]inTyper{},                // *node.Terminal
 		connects:          map[string][]string{},
 		options:           optVals,
+		inNodeNames:       map[string]struct{}{},
+		outNodeNames:      map[string]struct{}{},
 	}
 }
 
@@ -118,8 +125,10 @@ func RegisterTerminal[CFG, I any](nb *Builder, b stage.TerminalProvider[CFG, I])
 }
 
 // Build creates a Graph where each node corresponds to a field in the provided Configuration struct.
-// The nodes will be connected according to the ConnectedConfig "source" --> ["destination"...] map.
-func (b *Builder) Build(cfg ConnectedConfig) (Graph, error) {
+// The nodes will be connected according to any of the following alternatives:
+//   - The ConnectedConfig "source" --> ["destination"...] map, if the passed type implements ConnectedConfig interface.
+//   - The sendsTo annotations on each graph stage.
+func (b *Builder) Build(cfg any) (Graph, error) {
 	g := Graph{}
 	if err := b.applyConfig(cfg); err != nil {
 		return g, err
@@ -131,6 +140,25 @@ func (b *Builder) Build(cfg ConnectedConfig) (Graph, error) {
 	for _, e := range b.exports {
 		g.terms = append(g.terms, e.(terminalNode))
 	}
+
+	// validate that there aren't nodes without connection
+	if len(b.outNodeNames) > 0 {
+		names := make([]string, 0, len(b.outNodeNames))
+		for n := range b.outNodeNames {
+			names = append(names, n)
+		}
+		return g, fmt.Errorf("the following nodes don't have any output: %s",
+			strings.Join(names, ", "))
+	}
+	if len(b.inNodeNames) > 0 {
+		names := make([]string, 0, len(b.inNodeNames))
+		for n := range b.inNodeNames {
+			names = append(names, n)
+		}
+		return g, fmt.Errorf("the following nodes don't have any input: %s",
+			strings.Join(names, ", "))
+	}
+
 	return g, nil
 }
 
@@ -146,6 +174,7 @@ func instantiate(nb *Builder, instanceID string, arg reflect.Value) error {
 		// startNode = AsStartCtx(providedFunc, nb.options...)
 		startNode := ib[0].Call(providedFunc)
 		nb.ingests[instanceID] = startNode[0].Interface().(outTyper)
+		nb.outNodeNames[instanceID] = struct{}{}
 		return nil
 	}
 	if tb, ok := nb.middleProviders[arg.Type()]; ok {
@@ -154,6 +183,8 @@ func instantiate(nb *Builder, instanceID string, arg reflect.Value) error {
 		// middleNode = AsMiddle(providedFunc, nb.options...)
 		middleNode := tb[0].Call(append(providedFunc, nb.options...))
 		nb.transforms[instanceID] = middleNode[0].Interface().(inOutTyper)
+		nb.inNodeNames[instanceID] = struct{}{}
+		nb.outNodeNames[instanceID] = struct{}{}
 		return nil
 	}
 
@@ -163,12 +194,21 @@ func instantiate(nb *Builder, instanceID string, arg reflect.Value) error {
 		// termNode = AsTerminal(providedFunc, nb.options...)
 		termNode := eb[0].Call(append(providedFunc, nb.options...))
 		nb.exports[instanceID] = termNode[0].Interface().(inTyper)
+		nb.inNodeNames[instanceID] = struct{}{}
 		return nil
 	}
 	return fmt.Errorf("unknown node name %q for type %q", instanceID, arg.Type())
 }
 
 func (b *Builder) connect(src, dst string) error {
+	if src == dst {
+		return fmt.Errorf("node %q must not send data to itself", dst)
+	}
+	// remove the src and dst from the inNodeNames and outNodeNames to mark that
+	// they have been already connected
+	delete(b.inNodeNames, dst)
+	delete(b.outNodeNames, src)
+
 	// find source and destination stages
 	var srcNode outTyper
 	var ok bool

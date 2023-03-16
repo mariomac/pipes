@@ -3,6 +3,7 @@ package graph
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/mariomac/pipes/pkg/graph/stage"
 )
@@ -33,19 +34,34 @@ type ConnectedConfig interface {
 }
 
 // applyConfig instantiates and configures the different pipeline stages according to the provided configuration
-func (b *Builder) applyConfig(cfg ConnectedConfig) error {
+func (b *Builder) applyConfig(cfg any) error {
+	annotatedConnections := map[string][]string{}
 	cv := reflect.ValueOf(cfg)
 	if cv.Kind() == reflect.Pointer {
-		if err := b.applyConfigReflect(cv.Elem()); err != nil {
+		if err := b.applyConfigReflect(cv.Elem(), annotatedConnections); err != nil {
 			return err
 		}
 	} else {
-		if err := b.applyConfigReflect(cv); err != nil {
+		if err := b.applyConfigReflect(cv, annotatedConnections); err != nil {
 			return err
 		}
 	}
 
-	for src, dsts := range cfg.Connections() {
+	// connect any node with the sendsTo annotation
+	for src, dsts := range annotatedConnections {
+		for _, dst := range dsts {
+			if err := b.connect(src, dst); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Connections() implementation will override any `sendsTo` annotation. But both can coexist
+	ccfg, ok := cfg.(ConnectedConfig)
+	if !ok {
+		return nil
+	}
+	for src, dsts := range ccfg.Connections() {
 		for _, dst := range dsts {
 			if err := b.connect(src, dst); err != nil {
 				return err
@@ -55,7 +71,7 @@ func (b *Builder) applyConfig(cfg ConnectedConfig) error {
 	return nil
 }
 
-func (b *Builder) applyConfigReflect(cfgValue reflect.Value) error {
+func (b *Builder) applyConfigReflect(cfgValue reflect.Value, conns map[string][]string) error {
 	if cfgValue.Kind() != reflect.Struct {
 		return fmt.Errorf("configuration should be a struct. Was: %s", cfgValue.Type())
 	}
@@ -68,12 +84,12 @@ func (b *Builder) applyConfigReflect(cfgValue reflect.Value) error {
 		fieldVal := cfgValue.Field(f)
 		if fieldVal.Type().Kind() == reflect.Array || fieldVal.Type().Kind() == reflect.Slice {
 			for nf := 0; nf < fieldVal.Len(); nf++ {
-				if err := b.applyField(field, fieldVal.Index(nf)); err != nil {
+				if err := b.applyField(field, fieldVal.Index(nf), conns); err != nil {
 					return err
 				}
 			}
 		} else {
-			if err := b.applyField(field, cfgValue.Field(f)); err != nil {
+			if err := b.applyField(field, cfgValue.Field(f), conns); err != nil {
 				return err
 			}
 		}
@@ -86,8 +102,16 @@ func (b *Builder) applyConfigReflect(cfgValue reflect.Value) error {
 // 2- The ID specified by the stage.Instance embedded type, if any
 // 3- The result of the `nodeId` embedded tag in the struct
 // otherwise it throws a runtime error
-func (b *Builder) applyField(fieldType reflect.StructField, fieldVal reflect.Value) error {
+func (b *Builder) applyField(fieldType reflect.StructField, fieldVal reflect.Value, conns map[string][]string) error {
+	// checks if it has a sendsTo annotation and update the connections map accordingly
+	var updateAnnotatedDestinations = func(instanceID string) {
+		if dstNode, ok := fieldType.Tag.Lookup(sendsToTag); ok {
+			conns[instanceID] = strings.Split(dstNode, ",")
+		}
+	}
+
 	if instancer, ok := fieldVal.Interface().(stage.Instancer); ok {
+		updateAnnotatedDestinations(instancer.ID())
 		return instantiate(b, instancer.ID(), fieldVal)
 	}
 
@@ -95,11 +119,13 @@ func (b *Builder) applyField(fieldType reflect.StructField, fieldVal reflect.Val
 	// to the convenience stage.Instance type
 	if fieldVal.Type().ConvertibleTo(graphInstanceType) {
 		instancer := fieldVal.Convert(graphInstanceType).Interface().(stage.Instance)
+		updateAnnotatedDestinations(instancer.ID())
 		return instantiate(b, instancer.ID(), fieldVal)
 	}
 
 	// Otherwise, let's check for the nodeId embedded tag in the struct if any
 	if instanceID, ok := fieldType.Tag.Lookup(nodeIdTag); ok {
+		updateAnnotatedDestinations(instanceID)
 		return instantiate(b, instanceID, fieldVal)
 	}
 
