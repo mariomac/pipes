@@ -3,6 +3,7 @@
 # v0.NEXT
 * High-level API nodes do not need to implement `Instancer` if you define a `nodeId` tag in the
   config struct that defines them.
+* An `InstaceID == '-'` or `nodeId:"-"` will ignore this field from the graph.
 * Graph configs does not need to implement `ConnectedConfig` interface if their properties define the
   `sendsTo` configuration.
 * Graph builder returns error if nodes remain unconnected

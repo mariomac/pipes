@@ -1,4 +1,7 @@
 # Graph API
+
+* Graph node providers now can include an error in the signature
+* Propagate context between providers (e.g. after the initialization of a first node, you can later
 * Detect cycles (optional)
 * Allow passing per-stage and per-instance options (e.b. buffer size for each concrete stage)
 * Register: error if registering an existing configuration type. Suggest e.g using typedefs for same underlying type
