@@ -9,6 +9,7 @@
 * Graph builder returns error if nodes remain unconnected
 * Graph builder returns error if a node sends data to itself
 * A node config implementing `Enabler` interface can allow users disabling nodes without requiring pointers.
+* Disabled or nil nodes can forward the received data by using the `fwdTo` annotation.
 
 ## Breaking changes
 * High-level graph API add contexts to the `graph.Run(context.Context)` library, and

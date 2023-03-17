@@ -12,6 +12,7 @@ import (
 const (
 	nodeIdTag    = "nodeId"
 	sendsToTag   = "sendsTo"
+	fwdToTag     = "fwdTo"
 	nodeIdIgnore = "-"
 )
 
@@ -44,7 +45,6 @@ type Builder struct {
 	ingests    map[string]outTyper
 	transforms map[string]inOutTyper
 	exports    map[string]inTyper
-	connects   map[string][]string
 	codecs     map[codecKey][2]reflect.Value // 0: reflect.ValueOf(node.AsMiddle[I,O]), 1: reflect.ValueOf(middleFunc[I, O])
 	options    []reflect.Value
 	// used to check unconnected nodes
@@ -52,6 +52,8 @@ type Builder struct {
 	outNodeNames map[string]struct{}
 	// used to avoid failing a "sendsTo" annotation pointing to a disabled node
 	disabledNodes map[string]struct{}
+	// used to forward data from disabled Nodes
+	forwarderNodes map[string][]string
 }
 
 // NewBuilder instantiates a Graph Builder with the default configuration, which can be overridden via the
@@ -69,11 +71,11 @@ func NewBuilder(options ...node.Option) *Builder {
 		ingests:           map[string]outTyper{},               // *node.StartCtx
 		transforms:        map[string]inOutTyper{},             // *node.Middle
 		exports:           map[string]inTyper{},                // *node.Terminal
-		connects:          map[string][]string{},
 		options:           optVals,
 		inNodeNames:       map[string]struct{}{},
 		outNodeNames:      map[string]struct{}{},
 		disabledNodes:     map[string]struct{}{},
+		forwarderNodes:    map[string][]string{},
 	}
 }
 
@@ -166,7 +168,7 @@ func (b *Builder) Build(cfg any) (Graph, error) {
 	return g, nil
 }
 
-func instantiate(nb *Builder, instanceID string, arg reflect.Value) error {
+func (nb *Builder) instantiate(instanceID string, arg reflect.Value) error {
 	// TODO: check if instanceID is duplicate
 	if instanceID == "" {
 		return fmt.Errorf("instance ID for type %s can't be empty", arg.Type())
@@ -214,10 +216,19 @@ func (b *Builder) connect(src, dst string) error {
 	delete(b.outNodeNames, src)
 	// Ignore disabled nodes, as they are disabled by the user
 	// despite the connection is hardcoded in the nodeId, sendsTo tags
-	if _, ok := b.disabledNodes[dst]; ok {
+	if _, ok := b.disabledNodes[src]; ok {
 		return nil
 	}
-	if _, ok := b.disabledNodes[src]; ok {
+	if _, ok := b.disabledNodes[dst]; ok {
+		// if the disabled destination is configured to forward data, it will recursively
+		// connect the source with its own destinations
+		if fwds, ok := b.forwarderNodes[dst]; ok {
+			for _, fwdDst := range fwds {
+				if err := b.connect(src, fwdDst); err != nil {
+					return err
+				}
+			}
+		}
 		return nil
 	}
 

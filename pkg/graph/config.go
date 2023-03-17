@@ -126,6 +126,10 @@ func (b *Builder) applyField(fieldType reflect.StructField, fieldVal reflect.Val
 	// checks if it has a sendsTo annotation and update the connections map accordingly
 	if dstNode, ok := fieldType.Tag.Lookup(sendsToTag); ok {
 		conns[instanceID] = strings.Split(dstNode, ",")
+	} else if dstNode, ok := fieldType.Tag.Lookup(fwdToTag); ok {
+		dsts := strings.Split(dstNode, ",")
+		conns[instanceID] = dsts
+		b.forwarderNodes[instanceID] = dsts
 	}
 
 	// Ignore the config field if it is not enabled
@@ -136,11 +140,11 @@ func (b *Builder) applyField(fieldType reflect.StructField, fieldVal reflect.Val
 		enabler, ok = fieldVal.Elem().Interface().(stage.Enabler)
 	}
 	if ok {
-		if !enabler.Enabled() {
+		if fieldVal.Kind() == reflect.Pointer && fieldVal.IsNil() || !enabler.Enabled() {
 			b.disabledNodes[instanceID] = struct{}{}
 			return nil
 		}
 	}
 
-	return instantiate(b, instanceID, fieldVal)
+	return b.instantiate(instanceID, fieldVal)
 }

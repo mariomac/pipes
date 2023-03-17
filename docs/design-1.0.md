@@ -93,6 +93,22 @@ MyGraph { Mid1: nil, Mid2: nil}
 
 As `start` node can't send data to any of their destinations.
 
+TODO: explain Enabler interface and how it can optionally disable non-pointer fields.
+
+### BypassElement
+
+The previous example would pass if use `fwdTo` instead of `sendTo`:
+
+```go
+type MyGraph struct {
+    Start StartNode `nodeId:"start" sendsTo:"mid"`
+    Mid  *MidNode   `nodeId:"mid" fwdTo:"term"`
+    Term  TermNode  `nodeId:"term"`
+}
+```
+
+In that case, a disabled node would be ignored and the StartNode will directly send to
+TermNode.
 
 ### Allow user configuring the node and destination IDs
 
