@@ -160,8 +160,8 @@ func TestIgnore(t *testing.T) {
 
 	type config struct {
 		SomeExtraField int        `nodeId:"-"` // this needs to be ignored
-		Start          CounterCfg `nodeId:"n1" sendsTo:"n2"`
-		Middle         DoublerCfg `nodeId:"n2" sendsTo:"n3"`
+		Start          CounterCfg `nodeId:"n1" sendTo:"n2"`
+		Middle         DoublerCfg `nodeId:"n2" sendTo:"n3"`
 		Term           MapperCfg  `nodeId:"n3"`
 		Connector
 	}

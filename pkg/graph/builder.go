@@ -11,8 +11,8 @@ import (
 
 const (
 	nodeIdTag    = "nodeId"
-	sendsToTag   = "sendsTo"
-	fwdToTag     = "fwdTo"
+	sendsToTag   = "sendTo"
+	fwdToTag     = "forwardTo"
 	nodeIdIgnore = "-"
 )
 
@@ -50,7 +50,7 @@ type Builder struct {
 	// used to check unconnected nodes
 	inNodeNames  map[string]struct{}
 	outNodeNames map[string]struct{}
-	// used to avoid failing a "sendsTo" annotation pointing to a disabled node
+	// used to avoid failing a "sendTo" annotation pointing to a disabled node
 	disabledNodes map[string]struct{}
 	// used to forward data from disabled Nodes
 	forwarderNodes map[string][]string
@@ -133,7 +133,7 @@ func RegisterTerminal[CFG, I any](nb *Builder, b stage.TerminalProvider[CFG, I])
 // Build creates a Graph where each node corresponds to a field in the provided Configuration struct.
 // The nodes will be connected according to any of the following alternatives:
 //   - The ConnectedConfig "source" --> ["destination"...] map, if the passed type implements ConnectedConfig interface.
-//   - The sendsTo annotations on each graph stage.
+//   - The sendTo annotations on each graph stage.
 func (b *Builder) Build(cfg any) (Graph, error) {
 	g := Graph{}
 	if err := b.applyConfig(cfg); err != nil {
@@ -215,7 +215,7 @@ func (b *Builder) connect(src, dst string) error {
 	delete(b.inNodeNames, dst)
 	delete(b.outNodeNames, src)
 	// Ignore disabled nodes, as they are disabled by the user
-	// despite the connection is hardcoded in the nodeId, sendsTo tags
+	// despite the connection is hardcoded in the nodeId, sendTo tags
 	if _, ok := b.disabledNodes[src]; ok {
 		return nil
 	}

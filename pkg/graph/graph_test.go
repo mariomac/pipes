@@ -276,8 +276,8 @@ func TestSendsTo(t *testing.T) {
 	})
 
 	type config struct {
-		Starts CounterCfg `nodeId:"s" sendsTo:"m"`
-		Middle DoublerCfg `nodeId:"m" sendsTo:"t"`
+		Starts CounterCfg `nodeId:"s" sendTo:"m"`
+		Middle DoublerCfg `nodeId:"m" sendTo:"t"`
 		Term   MapperCfg  `nodeId:"t"`
 	}
 	map1 := map[int]struct{}{}
@@ -325,18 +325,18 @@ func TestSendsTo_WrongAnnotations(t *testing.T) {
 		return func(in <-chan int) {}
 	})
 
-	// Should fail because a node is missing a sendsTo
+	// Should fail because a node is missing a sendTo
 	type config1 struct {
 		Starts CounterCfg `nodeId:"s"`
-		Middle DoublerCfg `nodeId:"m" sendsTo:"t"`
+		Middle DoublerCfg `nodeId:"m" sendTo:"t"`
 		Term   MapperCfg  `nodeId:"t"`
 	}
 	_, err := b.Build(config1{})
 	assert.Error(t, err)
 
-	// Should fail because the middle node is missing a sendsTo
+	// Should fail because the middle node is missing a sendTo
 	type config2 struct {
-		Starts CounterCfg `nodeId:"s" sendsTo:"m"`
+		Starts CounterCfg `nodeId:"s" sendTo:"m"`
 		Middle DoublerCfg `nodeId:"m"`
 		Term   MapperCfg  `nodeId:"t"`
 	}
@@ -346,7 +346,7 @@ func TestSendsTo_WrongAnnotations(t *testing.T) {
 	// Should fail because the middle node is sending to a start node
 	type config3 struct {
 		Starts CounterCfg `nodeId:"s"`
-		Middle DoublerCfg `nodeId:"m"  sendsTo:"s"`
+		Middle DoublerCfg `nodeId:"m"  sendTo:"s"`
 		Term   MapperCfg  `nodeId:"t"`
 	}
 	_, err = b.Build(config3{})
@@ -354,8 +354,8 @@ func TestSendsTo_WrongAnnotations(t *testing.T) {
 
 	// Should fail because a node cannot send to itself
 	type config4 struct {
-		Starts CounterCfg `nodeId:"s"  sendsTo:"m,t"`
-		Middle DoublerCfg `nodeId:"m"  sendsTo:"m"`
+		Starts CounterCfg `nodeId:"s"  sendTo:"m,t"`
+		Middle DoublerCfg `nodeId:"m"  sendTo:"m"`
 		Term   MapperCfg  `nodeId:"t"`
 	}
 	_, err = b.Build(config4{})
@@ -363,8 +363,8 @@ func TestSendsTo_WrongAnnotations(t *testing.T) {
 
 	// Should fail because a destination node does not exist
 	type config5 struct {
-		Starts CounterCfg `nodeId:"s" sendsTo:"m,x"`
-		Middle DoublerCfg `nodeId:"m" sendsTo:"t"`
+		Starts CounterCfg `nodeId:"s" sendTo:"m,x"`
+		Middle DoublerCfg `nodeId:"m" sendTo:"t"`
 		Term   MapperCfg  `nodeId:"t"`
 	}
 	_, err = b.Build(config5{})
@@ -372,8 +372,8 @@ func TestSendsTo_WrongAnnotations(t *testing.T) {
 
 	// Should fail because the middle node does not have any input
 	type config6 struct {
-		Starts CounterCfg `nodeId:"s" sendsTo:"t"`
-		Middle DoublerCfg `nodeId:"m" sendsTo:"t"`
+		Starts CounterCfg `nodeId:"s" sendTo:"t"`
+		Middle DoublerCfg `nodeId:"m" sendTo:"t"`
 		Term   MapperCfg  `nodeId:"t"`
 	}
 	_, err = b.Build(config6{})
@@ -426,9 +426,9 @@ func TestEnabled(t *testing.T) {
 	})
 
 	type config struct {
-		Starts  CounterCfg `nodeId:"s" sendsTo:"m1,m2"`
-		Middle1 EnableCfg  `nodeId:"m1" sendsTo:"t"`
-		Middle2 EnableCfg  `nodeId:"m2" sendsTo:"t"`
+		Starts  CounterCfg `nodeId:"s" sendTo:"m1,m2"`
+		Middle1 EnableCfg  `nodeId:"m1" sendTo:"t"`
+		Middle2 EnableCfg  `nodeId:"m2" sendTo:"t"`
 		Term    MapperCfg  `nodeId:"t"`
 	}
 
@@ -490,8 +490,8 @@ func TestForward_Enabled(t *testing.T) {
 	})
 
 	type config struct {
-		Starts CounterCfg `nodeId:"s" sendsTo:"m"`
-		Middle EnableCfg  `nodeId:"m" fwdTo:"t"`
+		Starts CounterCfg `nodeId:"s" sendTo:"m"`
+		Middle EnableCfg  `nodeId:"m" forwardTo:"t"`
 		Term   MapperCfg  `nodeId:"t"`
 	}
 
@@ -552,8 +552,8 @@ func TestForward_Disabled(t *testing.T) {
 	})
 
 	type config struct {
-		Starts CounterCfg `nodeId:"s" sendsTo:"m"`
-		Middle EnableCfg  `nodeId:"m" fwdTo:"t"`
+		Starts CounterCfg `nodeId:"s" sendTo:"m"`
+		Middle EnableCfg  `nodeId:"m" forwardTo:"t"`
 		Term   MapperCfg  `nodeId:"t"`
 	}
 
@@ -594,7 +594,11 @@ func TestForward_Disabled_Nil(t *testing.T) {
 		}
 	})
 
-	RegisterMiddle(b, func(c *EnableCfg) node.MiddleFunc[int, int] {
+	type NillableCfg struct {
+		Add int
+	}
+
+	RegisterMiddle(b, func(c *NillableCfg) node.MiddleFunc[int, int] {
 		return func(in <-chan int, out chan<- int) {
 			for n := range in {
 				out <- c.Add + n*2
@@ -614,8 +618,72 @@ func TestForward_Disabled_Nil(t *testing.T) {
 	})
 
 	type config struct {
-		Starts CounterCfg `nodeId:"s" sendsTo:"m"`
-		Middle *EnableCfg `nodeId:"m" fwdTo:"t"`
+		Starts CounterCfg   `nodeId:"s" sendTo:"m"`
+		Middle *NillableCfg `nodeId:"m" forwardTo:"t"`
+		Term   MapperCfg    `nodeId:"t"`
+	}
+
+	map1 := map[int]struct{}{}
+	g, err := b.Build(config{
+		Starts: CounterCfg{From: 1, To: 5},
+		Term:   MapperCfg{Dst: map1},
+	})
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+	go func() {
+		g.Run(context.Background())
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		require.Fail(t, "timeout while waiting for graph to complete")
+	}
+
+	assert.Equal(t, map[int]struct{}{1: {}, 2: {}, 3: {}, 4: {}, 5: {}}, map1)
+}
+
+func TestForward_Disabled_Empty(t *testing.T) {
+	b := NewBuilder()
+
+	type CounterCfg struct {
+		From int
+		To   int
+	}
+	RegisterStart(b, func(cfg CounterCfg) node.StartFuncCtx[int] {
+		return func(_ context.Context, out chan<- int) {
+			for i := cfg.From; i <= cfg.To; i++ {
+				out <- i
+			}
+		}
+	})
+
+	// If a slice node is tagged as a single node, we won't treat its elements as single nodes but
+	// everything as a node
+	type SliceCfg []int
+	RegisterMiddle(b, func(c SliceCfg) node.MiddleFunc[int, int] {
+		return func(in <-chan int, out chan<- int) {
+			for n := range in {
+				out <- c[0] + n*2
+			}
+		}
+	})
+
+	type MapperCfg struct {
+		Dst map[int]struct{}
+	}
+	RegisterTerminal(b, func(cfg MapperCfg) node.TerminalFunc[int] {
+		return func(in <-chan int) {
+			for n := range in {
+				cfg.Dst[n] = struct{}{}
+			}
+		}
+	})
+
+	type config struct {
+		Starts CounterCfg `nodeId:"s" sendTo:"m"`
+		Middle SliceCfg   `nodeId:"m" forwardTo:"t"`
 		Term   MapperCfg  `nodeId:"t"`
 	}
 

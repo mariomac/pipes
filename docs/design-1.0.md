@@ -17,8 +17,8 @@ In explicit modes, each node has an explicit ID and destination node.
 
 ```go
 type MyGraph struct {
-    Start StartNode `nodeId:"start" sendsTo:"mid"`
-    Mid   MidNode   `nodeId:"mid" sendsTo:"term"`
+    Start StartNode `nodeId:"start" sendTo:"mid"`
+    Mid   MidNode   `nodeId:"mid" sendTo:"term"`
     Term  TermNode  `nodeId:"term"`
 }
 ```
@@ -33,8 +33,8 @@ graph LR;
 
 ```go
 type MyGraph struct {
-    Start StartNode `nodeId:"start" sendsTo:"mid"`
-    Mid   MidNode   `nodeId:"mid" sendsTo:"term"`
+    Start StartNode `nodeId:"start" sendTo:"mid"`
+    Mid   MidNode   `nodeId:"mid" sendTo:"term"`
     Term  TermNode  `nodeId:"term"`
     Connector
 }
@@ -46,9 +46,9 @@ The user-provided `Connector` would override any explicit, annotated definition.
 
 ```go
 type MyGraph struct {
-    Start StartNode `nodeId:"start" sendsTo:"mid1,mid2"`
-    Mid1  MidNode  `nodeId:"mid1" sendsTo:"term"`
-    Mid2  MidNode  `nodeId:"mid2" sendsTo:"term"`
+    Start StartNode `nodeId:"start" sendTo:"mid1,mid2"`
+    Mid1  MidNode  `nodeId:"mid1" sendTo:"term"`
+    Mid2  MidNode  `nodeId:"mid2" sendTo:"term"`
     Term  TermNode  `nodeId:"term"`
 }
 ```
@@ -70,9 +70,9 @@ can be nul (optional).
 E.g:
 ```go
 type MyGraph struct {
-    Start StartNode `nodeId:"start" sendsTo:"mid1,mid2"`
-    Mid1  *MidNode  `nodeId:"mid1" sendsTo:"term"`
-    Mid2  *MidNode  `nodeId:"mid2" sendsTo:"term"`
+    Start StartNode `nodeId:"start" sendTo:"mid1,mid2"`
+    Mid1  *MidNode  `nodeId:"mid1" sendTo:"term"`
+    Mid2  *MidNode  `nodeId:"mid2" sendTo:"term"`
     Term  TermNode  `nodeId:"term"`
 }
 ```
@@ -97,12 +97,12 @@ TODO: explain Enabler interface and how it can optionally disable non-pointer fi
 
 ### BypassElement
 
-The previous example would pass if use `fwdTo` instead of `sendTo`:
+The previous example would pass if use `forwardTo` instead of `sendTo`:
 
 ```go
 type MyGraph struct {
-    Start StartNode `nodeId:"start" sendsTo:"mid"`
-    Mid  *MidNode   `nodeId:"mid" fwdTo:"term"`
+    Start StartNode `nodeId:"start" sendTo:"mid"`
+    Mid  *MidNode   `nodeId:"mid" forwardTo:"term"`
     Term  TermNode  `nodeId:"term"`
 }
 ```
@@ -115,11 +115,11 @@ TermNode.
 ```go
 type StartNode struct {
     ID   string `nodeId` // marks value of this field as nodeId
-    Dest string `sendsTo` // marks value of this field as destination node Id
+    Dest string `sendTo` // marks value of this field as destination node Id
 }
 type MyGraph struct {
-    Start StartNode // we don't need to define neither nodeId nor sendsTo here
-    Mid   MidNode   `nodeId:"mid" sendsTo:"term"`
+    Start StartNode // we don't need to define neither nodeId nor sendTo here
+    Mid   MidNode   `nodeId:"mid" sendTo:"term"`
     Term  TermNode  `nodeId:"term"`
 }
 ```
@@ -145,11 +145,11 @@ This might be specially helpful for a free-form, user-defined graphs:
 ```go
 type StartNode struct {
     ID   string `nodeId`
-    Dest string `sendsTo`
+    Dest string `sendTo`
 }
 type MidNode struct {
     ID   string `nodeId`
-    Dest string `sendsTo`
+    Dest string `sendTo`
 }
 type MyGraph struct {
     Start StartNode
@@ -200,8 +200,8 @@ E.g.:
 
 ```go
 type MyGraph struct {
-    Start StartNode `nodeId:"start" sendsTo:"mid"`
-    Mids  []MidNode `nodeId:"mid" sendsTo:"output"`
+    Start StartNode `nodeId:"start" sendTo:"mid"`
+    Mids  []MidNode `nodeId:"mid" sendTo:"output"`
     Term  TermNode `nodeId:"term"`
 }
 ```
@@ -235,14 +235,14 @@ A `sequential` tag would make each node defined in an array to send data to the 
 
 If the tagged node is Middle or Terminal, the first element in the array would get the `nodeId`.
 
-If the tagged node is Start or Middle, the last element of the array would forward the data to the `sendsTo` node.
+If the tagged node is Start or Middle, the last element of the array would forward the data to the `sendTo` node.
 
 If we tag the previous example with `sequential` in the
 
 ```go
 type MyGraph struct {
-    Start StartNode `nodeId:"start" sendsTo:"mid"`
-    Mids  []MidNode `sequential nodeId:"mid" sendsTo:"output"`
+    Start StartNode `nodeId:"start" sendTo:"mid"`
+    Mids  []MidNode `sequential nodeId:"mid" sendTo:"output"`
     Term  TermNode `nodeId:"term"`
 }
 ```
