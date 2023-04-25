@@ -1,6 +1,9 @@
 # CHANGELOG
 
-# v0.NEXT
+# v0.6.0
+* As **an initial, unstable API**, we allow defining multiple Start functions into a start node.
+  After some evaluation, we will implement also multiple MIddle and Terminal functions that behave
+  as a single node.
 * High-level API nodes do not need to implement `Instancer` if you define a `nodeId` tag in the
   config struct that defines them.
 * An `InstaceID == '-'` or `nodeId:"-"` will ignore this field from the graph.

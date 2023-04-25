@@ -707,3 +707,73 @@ func TestForward_Disabled_Empty(t *testing.T) {
 
 	assert.Equal(t, map[int]struct{}{1: {}, 2: {}, 3: {}, 4: {}, 5: {}}, map1)
 }
+
+func TestMultiNode(t *testing.T) {
+	b := NewBuilder()
+
+	type CounterCfg struct {
+		From int
+		To   int
+	}
+
+	RegisterMultiStart(b, func(cfg CounterCfg) []node.StartFuncCtx[int] {
+		return []node.StartFuncCtx[int]{
+			func(_ context.Context, out chan<- int) {
+				for i := cfg.From; i <= cfg.To; i++ {
+					out <- i
+				}
+			},
+			func(_ context.Context, out chan<- int) {
+				for i := cfg.From; i <= cfg.To; i++ {
+					out <- i + 100
+				}
+			},
+		}
+	})
+
+	type DoublerCfg struct{}
+	RegisterMiddle(b, func(_ DoublerCfg) node.MiddleFunc[int, int] {
+		return func(in <-chan int, out chan<- int) {
+			for n := range in {
+				out <- n * 2
+			}
+		}
+	})
+
+	type MapperCfg struct {
+		Dst map[int]struct{}
+	}
+	RegisterTerminal(b, func(cfg MapperCfg) node.TerminalFunc[int] {
+		return func(in <-chan int) {
+			for n := range in {
+				cfg.Dst[n] = struct{}{}
+			}
+		}
+	})
+
+	type config struct {
+		Starts CounterCfg `nodeId:"s" sendTo:"m"`
+		Middle DoublerCfg `nodeId:"m" sendTo:"t"`
+		Term   MapperCfg  `nodeId:"t"`
+	}
+	map1 := map[int]struct{}{}
+	g, err := b.Build(config{
+		Starts: CounterCfg{From: 1, To: 3},
+		Middle: DoublerCfg{},
+		Term:   MapperCfg{Dst: map1},
+	})
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+	go func() {
+		g.Run(context.Background())
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		require.Fail(t, "timeout while waiting for graph to complete")
+	}
+
+	assert.Equal(t, map[int]struct{}{2: {}, 4: {}, 6: {}, 202: {}, 204: {}, 206: {}}, map1)
+}
