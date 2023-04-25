@@ -130,7 +130,7 @@ func (m *Terminal[IN]) InType() reflect.Type {
 	return m.inType
 }
 
-// AsStart wraps an StartFunc into a Start node.
+// AsStart wraps a group of StartFunc with the same signature into a Start node.
 // Deprecated in favor of AsStartCtx
 func AsStart[OUT any](funs ...StartFunc[OUT]) *Start[OUT] {
 	funsCtx := make([]StartFuncCtx[OUT], 0, len(funs))
@@ -142,7 +142,7 @@ func AsStart[OUT any](funs ...StartFunc[OUT]) *Start[OUT] {
 	return AsStartCtx(funsCtx...)
 }
 
-// AsStartCtx wraps an StartFuncCtx into an Start node.
+// AsStartCtx wraps a group of StartFuncCtx into a Start node.
 func AsStartCtx[OUT any](funs ...StartFuncCtx[OUT]) *Start[OUT] {
 	var out OUT
 	return &Start[OUT]{
