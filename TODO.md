@@ -1,5 +1,6 @@
 # Graph API
 
+* Allow multiple Middle and Terminal funcs, the same way we do with AsStart
 * Graph node providers now can include an error in the signature
 * Propagate context between providers (e.g. after the initialization of a first node, you can later
 * Detect cycles (optional)

@@ -48,11 +48,11 @@ func TestForker(t *testing.T) {
 	joiner3 := NewJoiner[int](20)
 
 	f := Fork(&joiner1, &joiner2, &joiner3)
-	sender := f.Sender()
+	sender := f.AcquireSender()
 	sender <- 1
 	sender <- 2
 	sender <- 3
-	f.Close()
+	f.ReleaseSender()
 
 	finished := helpers.AsyncWait(3)
 	var arr1, arr2, arr3 []int
@@ -83,7 +83,7 @@ func TestForker(t *testing.T) {
 
 	// check that all the channels have been closed
 	assert.Panics(t, func() {
-		f.Sender() <- 1
+		f.AcquireSender() <- 1
 	})
 	assert.Panics(t, func() {
 		r := joiner1.Receiver()

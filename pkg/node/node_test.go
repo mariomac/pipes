@@ -247,6 +247,61 @@ func TestContexts(t *testing.T) {
 	}
 }
 
+func TestMultiNodes(t *testing.T) {
+	// Like testBasicGraph but grouping multi-function nodes
+	starts := AsStartCtx(CounterCtx(1, 3), CounterCtx(6, 8))
+	odds := AsMiddle(OddFilter)
+	evens := AsMiddle(EvenFilter)
+	oddsMsg := AsMiddle(Messager("odd"))
+	evensMsg := AsMiddle(Messager("even"))
+	collected := map[string]struct{}{}
+	collector := AsTerminal(func(strs <-chan string) {
+		for str := range strs {
+			collected[str] = struct{}{}
+		}
+	})
+	/*
+		start1----\ /---start2
+		  |       X      |
+		evens<---/ \-->odds
+		  |              |
+		evensMsg      oddsMsg
+		       \      /
+		        printer
+	*/
+	starts.SendsTo(evens, odds)
+	odds.SendsTo(oddsMsg)
+	evens.SendsTo(evensMsg)
+	oddsMsg.SendsTo(collector)
+	evensMsg.SendsTo(collector)
+
+	starts.Start()
+
+	select {
+	case <-collector.Done():
+	// ok!
+	case <-time.After(timeout):
+		require.Fail(t, "timeout while waiting for pipeline to complete")
+	}
+
+	assert.Equal(t, map[string]struct{}{
+		"odd: 1":  {},
+		"even: 2": {},
+		"odd: 3":  {},
+		"even: 6": {},
+		"odd: 7":  {},
+		"even: 8": {},
+	}, collected)
+}
+
+func CounterCtx(from, to int) StartFuncCtx[int] {
+	return func(_ context.Context, out chan<- int) {
+		for i := from; i <= to; i++ {
+			out <- i
+		}
+	}
+}
+
 func Counter(from, to int) func(out chan<- int) {
 	return func(out chan<- int) {
 		for i := from; i <= to; i++ {
