@@ -30,21 +30,21 @@ type Config struct {
 	Printer   PrinterConfig
 }
 
-func Generator(cfg GeneratorConfig) node.StartFuncCtx[int] {
+func Generator(_ context.Context, cfg GeneratorConfig) (node.StartFuncCtx[int], error) {
 	return func(_ context.Context, out chan<- int) {
 		rand.Seed(cfg.Seed)
 		for n := 0; n < cfg.Repeat; n++ {
 			out <- cfg.LowerBound + rand.Intn(cfg.UpperBound-cfg.LowerBound)
 		}
-	}
+	}, nil
 }
 
-func Printer(_ PrinterConfig) node.TerminalFunc[string] {
+func Printer(_ context.Context, _ PrinterConfig) (node.TerminalFunc[string], error) {
 	return func(in <-chan string) {
 		for i := range in {
 			fmt.Println("received: ", i)
 		}
-	}
+	}, nil
 }
 
 // IntStringCodec just converts ints to string. Since the Generator
@@ -63,7 +63,7 @@ func main() {
 	graph.RegisterStart(gb, Generator)
 	graph.RegisterTerminal(gb, Printer)
 
-	grp, err := gb.Build(Config{
+	grp, err := gb.Build(context.Background(), Config{
 		Generator: GeneratorConfig{
 			Instance:   "generator",
 			LowerBound: -10,

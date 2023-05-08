@@ -19,35 +19,35 @@ func TestBasic(t *testing.T) {
 		From int
 		To   int
 	}
-	RegisterStart(b, func(cfg CounterCfg) node.StartFuncCtx[int] {
+	RegisterStart(b, func(_ context.Context, cfg CounterCfg) (node.StartFuncCtx[int], error) {
 		return func(_ context.Context, out chan<- int) {
 			for i := cfg.From; i <= cfg.To; i++ {
 				out <- i
 			}
-		}
+		}, nil
 	})
 
 	type DoublerCfg struct {
 		stage.Instance
 	}
-	RegisterMiddle(b, func(_ DoublerCfg) node.MiddleFunc[int, int] {
+	RegisterMiddle(b, func(_ context.Context, _ DoublerCfg) (node.MiddleFunc[int, int], error) {
 		return func(in <-chan int, out chan<- int) {
 			for n := range in {
 				out <- n * 2
 			}
-		}
+		}, nil
 	})
 
 	type MapperCfg struct {
 		stage.Instance
 		Dst map[int]struct{}
 	}
-	RegisterTerminal(b, func(cfg MapperCfg) node.TerminalFunc[int] {
+	RegisterTerminal(b, func(_ context.Context, cfg MapperCfg) (node.TerminalFunc[int], error) {
 		return func(in <-chan int) {
 			for n := range in {
 				cfg.Dst[n] = struct{}{}
 			}
-		}
+		}, nil
 	})
 
 	type config struct {
@@ -57,7 +57,7 @@ func TestBasic(t *testing.T) {
 		Connector
 	}
 	map1, map2 := map[int]struct{}{}, map[int]struct{}{}
-	g, err := b.Build(config{
+	g, err := b.Build(context.TODO(), config{
 		Starts: []CounterCfg{
 			{From: 1, To: 5, Instance: "c1"},
 			{From: 6, To: 8, Instance: "c2"}},
@@ -95,7 +95,7 @@ func TestContext(t *testing.T) {
 		stage.Instance
 		Input chan int
 	}
-	RegisterStart(b, func(cfg ReceiverCfg) node.StartFuncCtx[int] {
+	RegisterStart(b, func(_ context.Context, cfg ReceiverCfg) (node.StartFuncCtx[int], error) {
 		return func(ctx context.Context, out chan<- int) {
 			for {
 				select {
@@ -105,7 +105,7 @@ func TestContext(t *testing.T) {
 					out <- i
 				}
 			}
-		}
+		}, nil
 	})
 
 	type ForwarderCfg struct {
@@ -113,13 +113,13 @@ func TestContext(t *testing.T) {
 		Out chan int
 	}
 	allClosed := make(chan struct{})
-	RegisterTerminal(b, func(cfg ForwarderCfg) node.TerminalFunc[int] {
+	RegisterTerminal(b, func(_ context.Context, cfg ForwarderCfg) (node.TerminalFunc[int], error) {
 		return func(in <-chan int) {
 			for n := range in {
 				cfg.Out <- n
 			}
 			close(allClosed)
-		}
+		}, nil
 	})
 	type config struct {
 		Starts []ReceiverCfg
@@ -137,7 +137,7 @@ func TestContext(t *testing.T) {
 			"start2": []string{"end"},
 		},
 	}
-	g, err := b.Build(&cfg)
+	g, err := b.Build(context.TODO(), &cfg)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -180,32 +180,32 @@ func TestNodeIdAsTag(t *testing.T) {
 		From int
 		To   int
 	}
-	RegisterStart(b, func(cfg CounterCfg) node.StartFuncCtx[int] {
+	RegisterStart(b, func(_ context.Context, cfg CounterCfg) (node.StartFuncCtx[int], error) {
 		return func(_ context.Context, out chan<- int) {
 			for i := cfg.From; i <= cfg.To; i++ {
 				out <- i
 			}
-		}
+		}, nil
 	})
 
 	type DoublerCfg struct{}
-	RegisterMiddle(b, func(_ DoublerCfg) node.MiddleFunc[int, int] {
+	RegisterMiddle(b, func(_ context.Context, _ DoublerCfg) (node.MiddleFunc[int, int], error) {
 		return func(in <-chan int, out chan<- int) {
 			for n := range in {
 				out <- n * 2
 			}
-		}
+		}, nil
 	})
 
 	type MapperCfg struct {
 		Dst map[int]struct{}
 	}
-	RegisterTerminal(b, func(cfg MapperCfg) node.TerminalFunc[int] {
+	RegisterTerminal(b, func(_ context.Context, cfg MapperCfg) (node.TerminalFunc[int], error) {
 		return func(in <-chan int) {
 			for n := range in {
 				cfg.Dst[n] = struct{}{}
 			}
-		}
+		}, nil
 	})
 
 	type config struct {
@@ -215,7 +215,7 @@ func TestNodeIdAsTag(t *testing.T) {
 		Connector
 	}
 	map1 := map[int]struct{}{}
-	g, err := b.Build(config{
+	g, err := b.Build(context.TODO(), config{
 		Starts: CounterCfg{From: 1, To: 5},
 		Middle: DoublerCfg{},
 		Term:   MapperCfg{Dst: map1},
@@ -247,32 +247,32 @@ func TestSendsTo(t *testing.T) {
 		From int
 		To   int
 	}
-	RegisterStart(b, func(cfg CounterCfg) node.StartFuncCtx[int] {
+	RegisterStart(b, func(_ context.Context, cfg CounterCfg) (node.StartFuncCtx[int], error) {
 		return func(_ context.Context, out chan<- int) {
 			for i := cfg.From; i <= cfg.To; i++ {
 				out <- i
 			}
-		}
+		}, nil
 	})
 
 	type DoublerCfg struct{}
-	RegisterMiddle(b, func(_ DoublerCfg) node.MiddleFunc[int, int] {
+	RegisterMiddle(b, func(_ context.Context, _ DoublerCfg) (node.MiddleFunc[int, int], error) {
 		return func(in <-chan int, out chan<- int) {
 			for n := range in {
 				out <- n * 2
 			}
-		}
+		}, nil
 	})
 
 	type MapperCfg struct {
 		Dst map[int]struct{}
 	}
-	RegisterTerminal(b, func(cfg MapperCfg) node.TerminalFunc[int] {
+	RegisterTerminal(b, func(_ context.Context, cfg MapperCfg) (node.TerminalFunc[int], error) {
 		return func(in <-chan int) {
 			for n := range in {
 				cfg.Dst[n] = struct{}{}
 			}
-		}
+		}, nil
 	})
 
 	type config struct {
@@ -281,7 +281,7 @@ func TestSendsTo(t *testing.T) {
 		Term   MapperCfg  `nodeId:"t"`
 	}
 	map1 := map[int]struct{}{}
-	g, err := b.Build(config{
+	g, err := b.Build(context.TODO(), config{
 		Starts: CounterCfg{From: 1, To: 5},
 		Middle: DoublerCfg{},
 		Term:   MapperCfg{Dst: map1},
@@ -309,20 +309,20 @@ func TestSendsTo_WrongAnnotations(t *testing.T) {
 		From int
 		To   int
 	}
-	RegisterStart(b, func(cfg CounterCfg) node.StartFuncCtx[int] {
-		return func(_ context.Context, out chan<- int) {}
+	RegisterStart(b, func(_ context.Context, cfg CounterCfg) (node.StartFuncCtx[int], error) {
+		return func(_ context.Context, out chan<- int) {}, nil
 	})
 
 	type DoublerCfg struct{}
-	RegisterMiddle(b, func(_ DoublerCfg) node.MiddleFunc[int, int] {
-		return func(in <-chan int, out chan<- int) {}
+	RegisterMiddle(b, func(_ context.Context, _ DoublerCfg) (node.MiddleFunc[int, int], error) {
+		return func(in <-chan int, out chan<- int) {}, nil
 	})
 
 	type MapperCfg struct {
 		Dst map[int]struct{}
 	}
-	RegisterTerminal(b, func(cfg MapperCfg) node.TerminalFunc[int] {
-		return func(in <-chan int) {}
+	RegisterTerminal(b, func(_ context.Context, cfg MapperCfg) (node.TerminalFunc[int], error) {
+		return func(in <-chan int) {}, nil
 	})
 
 	// Should fail because a node is missing a sendTo
@@ -331,7 +331,7 @@ func TestSendsTo_WrongAnnotations(t *testing.T) {
 		Middle DoublerCfg `nodeId:"m" sendTo:"t"`
 		Term   MapperCfg  `nodeId:"t"`
 	}
-	_, err := b.Build(config1{})
+	_, err := b.Build(context.TODO(), config1{})
 	assert.Error(t, err)
 
 	// Should fail because the middle node is missing a sendTo
@@ -340,7 +340,7 @@ func TestSendsTo_WrongAnnotations(t *testing.T) {
 		Middle DoublerCfg `nodeId:"m"`
 		Term   MapperCfg  `nodeId:"t"`
 	}
-	_, err = b.Build(config2{})
+	_, err = b.Build(context.TODO(), config2{})
 	assert.Error(t, err)
 
 	// Should fail because the middle node is sending to a start node
@@ -349,7 +349,7 @@ func TestSendsTo_WrongAnnotations(t *testing.T) {
 		Middle DoublerCfg `nodeId:"m"  sendTo:"s"`
 		Term   MapperCfg  `nodeId:"t"`
 	}
-	_, err = b.Build(config3{})
+	_, err = b.Build(context.TODO(), config3{})
 	assert.Error(t, err)
 
 	// Should fail because a node cannot send to itself
@@ -358,7 +358,7 @@ func TestSendsTo_WrongAnnotations(t *testing.T) {
 		Middle DoublerCfg `nodeId:"m"  sendTo:"m"`
 		Term   MapperCfg  `nodeId:"t"`
 	}
-	_, err = b.Build(config4{})
+	_, err = b.Build(context.TODO(), config4{})
 	assert.Error(t, err)
 
 	// Should fail because a destination node does not exist
@@ -367,7 +367,7 @@ func TestSendsTo_WrongAnnotations(t *testing.T) {
 		Middle DoublerCfg `nodeId:"m" sendTo:"t"`
 		Term   MapperCfg  `nodeId:"t"`
 	}
-	_, err = b.Build(config5{})
+	_, err = b.Build(context.TODO(), config5{})
 	assert.Error(t, err)
 
 	// Should fail because the middle node does not have any input
@@ -376,7 +376,7 @@ func TestSendsTo_WrongAnnotations(t *testing.T) {
 		Middle DoublerCfg `nodeId:"m" sendTo:"t"`
 		Term   MapperCfg  `nodeId:"t"`
 	}
-	_, err = b.Build(config6{})
+	_, err = b.Build(context.TODO(), config6{})
 	assert.Error(t, err)
 }
 
@@ -398,31 +398,31 @@ func TestEnabled(t *testing.T) {
 		From int
 		To   int
 	}
-	RegisterStart(b, func(cfg CounterCfg) node.StartFuncCtx[int] {
+	RegisterStart(b, func(_ context.Context, cfg CounterCfg) (node.StartFuncCtx[int], error) {
 		return func(_ context.Context, out chan<- int) {
 			for i := cfg.From; i <= cfg.To; i++ {
 				out <- i
 			}
-		}
+		}, nil
 	})
 
-	RegisterMiddle(b, func(c EnableCfg) node.MiddleFunc[int, int] {
+	RegisterMiddle(b, func(_ context.Context, c EnableCfg) (node.MiddleFunc[int, int], error) {
 		return func(in <-chan int, out chan<- int) {
 			for n := range in {
 				out <- c.Add + n*2
 			}
-		}
+		}, nil
 	})
 
 	type MapperCfg struct {
 		Dst map[int]struct{}
 	}
-	RegisterTerminal(b, func(cfg MapperCfg) node.TerminalFunc[int] {
+	RegisterTerminal(b, func(_ context.Context, cfg MapperCfg) (node.TerminalFunc[int], error) {
 		return func(in <-chan int) {
 			for n := range in {
 				cfg.Dst[n] = struct{}{}
 			}
-		}
+		}, nil
 	})
 
 	type config struct {
@@ -433,7 +433,7 @@ func TestEnabled(t *testing.T) {
 	}
 
 	map1 := map[int]struct{}{}
-	g, err := b.Build(config{
+	g, err := b.Build(context.TODO(), config{
 		Starts:  CounterCfg{From: 1, To: 5},
 		Middle1: EnableCfg{Enable: true, Add: 10},
 		Middle2: EnableCfg{Enable: false, Add: 100},
@@ -462,31 +462,31 @@ func TestForward_Enabled(t *testing.T) {
 		From int
 		To   int
 	}
-	RegisterStart(b, func(cfg CounterCfg) node.StartFuncCtx[int] {
+	RegisterStart(b, func(_ context.Context, cfg CounterCfg) (node.StartFuncCtx[int], error) {
 		return func(_ context.Context, out chan<- int) {
 			for i := cfg.From; i <= cfg.To; i++ {
 				out <- i
 			}
-		}
+		}, nil
 	})
 
-	RegisterMiddle(b, func(c EnableCfg) node.MiddleFunc[int, int] {
+	RegisterMiddle(b, func(_ context.Context, c EnableCfg) (node.MiddleFunc[int, int], error) {
 		return func(in <-chan int, out chan<- int) {
 			for n := range in {
 				out <- c.Add + n*2
 			}
-		}
+		}, nil
 	})
 
 	type MapperCfg struct {
 		Dst map[int]struct{}
 	}
-	RegisterTerminal(b, func(cfg MapperCfg) node.TerminalFunc[int] {
+	RegisterTerminal(b, func(_ context.Context, cfg MapperCfg) (node.TerminalFunc[int], error) {
 		return func(in <-chan int) {
 			for n := range in {
 				cfg.Dst[n] = struct{}{}
 			}
-		}
+		}, nil
 	})
 
 	type config struct {
@@ -496,7 +496,7 @@ func TestForward_Enabled(t *testing.T) {
 	}
 
 	map1 := map[int]struct{}{}
-	g, err := b.Build(config{
+	g, err := b.Build(context.TODO(), config{
 		Starts: CounterCfg{From: 1, To: 5},
 		Middle: EnableCfg{Enable: true, Add: 10},
 		Term:   MapperCfg{Dst: map1},
@@ -524,31 +524,31 @@ func TestForward_Disabled(t *testing.T) {
 		From int
 		To   int
 	}
-	RegisterStart(b, func(cfg CounterCfg) node.StartFuncCtx[int] {
+	RegisterStart(b, func(_ context.Context, cfg CounterCfg) (node.StartFuncCtx[int], error) {
 		return func(_ context.Context, out chan<- int) {
 			for i := cfg.From; i <= cfg.To; i++ {
 				out <- i
 			}
-		}
+		}, nil
 	})
 
-	RegisterMiddle(b, func(c EnableCfg) node.MiddleFunc[int, int] {
+	RegisterMiddle(b, func(_ context.Context, c EnableCfg) (node.MiddleFunc[int, int], error) {
 		return func(in <-chan int, out chan<- int) {
 			for n := range in {
 				out <- c.Add + n*2
 			}
-		}
+		}, nil
 	})
 
 	type MapperCfg struct {
 		Dst map[int]struct{}
 	}
-	RegisterTerminal(b, func(cfg MapperCfg) node.TerminalFunc[int] {
+	RegisterTerminal(b, func(_ context.Context, cfg MapperCfg) (node.TerminalFunc[int], error) {
 		return func(in <-chan int) {
 			for n := range in {
 				cfg.Dst[n] = struct{}{}
 			}
-		}
+		}, nil
 	})
 
 	type config struct {
@@ -558,7 +558,7 @@ func TestForward_Disabled(t *testing.T) {
 	}
 
 	map1 := map[int]struct{}{}
-	g, err := b.Build(config{
+	g, err := b.Build(context.TODO(), config{
 		Starts: CounterCfg{From: 1, To: 5},
 		Middle: EnableCfg{Enable: false, Add: 100},
 		Term:   MapperCfg{Dst: map1},
@@ -586,35 +586,35 @@ func TestForward_Disabled_Nil(t *testing.T) {
 		From int
 		To   int
 	}
-	RegisterStart(b, func(cfg CounterCfg) node.StartFuncCtx[int] {
+	RegisterStart(b, func(_ context.Context, cfg CounterCfg) (node.StartFuncCtx[int], error) {
 		return func(_ context.Context, out chan<- int) {
 			for i := cfg.From; i <= cfg.To; i++ {
 				out <- i
 			}
-		}
+		}, nil
 	})
 
 	type NillableCfg struct {
 		Add int
 	}
 
-	RegisterMiddle(b, func(c *NillableCfg) node.MiddleFunc[int, int] {
+	RegisterMiddle(b, func(_ context.Context, c *NillableCfg) (node.MiddleFunc[int, int], error) {
 		return func(in <-chan int, out chan<- int) {
 			for n := range in {
 				out <- c.Add + n*2
 			}
-		}
+		}, nil
 	})
 
 	type MapperCfg struct {
 		Dst map[int]struct{}
 	}
-	RegisterTerminal(b, func(cfg MapperCfg) node.TerminalFunc[int] {
+	RegisterTerminal(b, func(_ context.Context, cfg MapperCfg) (node.TerminalFunc[int], error) {
 		return func(in <-chan int) {
 			for n := range in {
 				cfg.Dst[n] = struct{}{}
 			}
-		}
+		}, nil
 	})
 
 	type config struct {
@@ -624,7 +624,7 @@ func TestForward_Disabled_Nil(t *testing.T) {
 	}
 
 	map1 := map[int]struct{}{}
-	g, err := b.Build(config{
+	g, err := b.Build(context.TODO(), config{
 		Starts: CounterCfg{From: 1, To: 5},
 		Term:   MapperCfg{Dst: map1},
 	})
@@ -651,34 +651,34 @@ func TestForward_Disabled_Empty(t *testing.T) {
 		From int
 		To   int
 	}
-	RegisterStart(b, func(cfg CounterCfg) node.StartFuncCtx[int] {
+	RegisterStart(b, func(_ context.Context, cfg CounterCfg) (node.StartFuncCtx[int], error) {
 		return func(_ context.Context, out chan<- int) {
 			for i := cfg.From; i <= cfg.To; i++ {
 				out <- i
 			}
-		}
+		}, nil
 	})
 
 	// If a slice node is tagged as a single node, we won't treat its elements as single nodes but
 	// everything as a node
 	type SliceCfg []int
-	RegisterMiddle(b, func(c SliceCfg) node.MiddleFunc[int, int] {
+	RegisterMiddle(b, func(_ context.Context, c SliceCfg) (node.MiddleFunc[int, int], error) {
 		return func(in <-chan int, out chan<- int) {
 			for n := range in {
 				out <- c[0] + n*2
 			}
-		}
+		}, nil
 	})
 
 	type MapperCfg struct {
 		Dst map[int]struct{}
 	}
-	RegisterTerminal(b, func(cfg MapperCfg) node.TerminalFunc[int] {
+	RegisterTerminal(b, func(_ context.Context, cfg MapperCfg) (node.TerminalFunc[int], error) {
 		return func(in <-chan int) {
 			for n := range in {
 				cfg.Dst[n] = struct{}{}
 			}
-		}
+		}, nil
 	})
 
 	type config struct {
@@ -688,7 +688,7 @@ func TestForward_Disabled_Empty(t *testing.T) {
 	}
 
 	map1 := map[int]struct{}{}
-	g, err := b.Build(config{
+	g, err := b.Build(context.TODO(), config{
 		Starts: CounterCfg{From: 1, To: 5},
 		Term:   MapperCfg{Dst: map1},
 	})
@@ -716,7 +716,7 @@ func TestMultiNode(t *testing.T) {
 		To   int
 	}
 
-	RegisterMultiStart(b, func(cfg CounterCfg) []node.StartFuncCtx[int] {
+	RegisterMultiStart(b, func(_ context.Context, cfg CounterCfg) ([]node.StartFuncCtx[int], error) {
 		return []node.StartFuncCtx[int]{
 			func(_ context.Context, out chan<- int) {
 				for i := cfg.From; i <= cfg.To; i++ {
@@ -728,27 +728,27 @@ func TestMultiNode(t *testing.T) {
 					out <- i + 100
 				}
 			},
-		}
+		}, nil
 	})
 
 	type DoublerCfg struct{}
-	RegisterMiddle(b, func(_ DoublerCfg) node.MiddleFunc[int, int] {
+	RegisterMiddle(b, func(_ context.Context, _ DoublerCfg) (node.MiddleFunc[int, int], error) {
 		return func(in <-chan int, out chan<- int) {
 			for n := range in {
 				out <- n * 2
 			}
-		}
+		}, nil
 	})
 
 	type MapperCfg struct {
 		Dst map[int]struct{}
 	}
-	RegisterTerminal(b, func(cfg MapperCfg) node.TerminalFunc[int] {
+	RegisterTerminal(b, func(_ context.Context, cfg MapperCfg) (node.TerminalFunc[int], error) {
 		return func(in <-chan int) {
 			for n := range in {
 				cfg.Dst[n] = struct{}{}
 			}
-		}
+		}, nil
 	})
 
 	type config struct {
@@ -757,7 +757,7 @@ func TestMultiNode(t *testing.T) {
 		Term   MapperCfg  `nodeId:"t"`
 	}
 	map1 := map[int]struct{}{}
-	g, err := b.Build(config{
+	g, err := b.Build(context.TODO(), config{
 		Starts: CounterCfg{From: 1, To: 3},
 		Middle: DoublerCfg{},
 		Term:   MapperCfg{Dst: map1},

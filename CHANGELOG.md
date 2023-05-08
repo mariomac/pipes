@@ -1,5 +1,13 @@
 # CHANGELOG
 
+# v0.7.0
+* **BREAKING CHANGE**: StartProvider, MiddleProvider and TermProvider now accept a context that is
+  can be enriched by the sender nodes, and can return an error that would cause the pipe build
+  to return error.
+  - Consequently, `builder.Build` also requires a context to be invoked.
+* Also, providers can return an error as second return value. If any provider
+  returns an error, the graph Build method will also return an error.
+
 # v0.6.0
 * As **an initial, unstable API**, we allow defining multiple Start functions into a start node.
   After some evaluation, we will implement also multiple MIddle and Terminal functions that behave

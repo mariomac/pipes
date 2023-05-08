@@ -27,9 +27,9 @@ and will return a `node.StartFuncCtx`, `node.MiddleFunc` or `node.TerminalFunc`.
 The signatures of the providers ares:
 
 ```go
-type StartProvider[CFG Instancer, O any] func(CFG) node.StartFuncCtx[O]
-type MiddleProvider[CFG Instancer, I, O any] func(CFG) node.MiddleFunc[I, O]
-type TerminalProvider[CFG Instancer, I any] func(CFG) node.TerminalFunc[I]
+type StartProvider[CFG, O any] func(context.Context, CFG) (node.StartFuncCtx[O], error)
+type MiddleProvider[CFG, I, O any] func(context.Context, CFG) (node.MiddleFunc[I, O], error)
+type TerminalProvider[CFG, I any] func(context.Context, CFG) (node.TerminalFunc[I], error)
 ```
 
 The `*Provider` functions of the [previous tutorial](../01-lowlevel-nodes/)
@@ -38,28 +38,28 @@ modify the `MiddleProvider` and `TerminalProvider` functions to fulfill
 the `stage.MiddleProvider` and `stage.TerminalProvider` signatures:
 
 ```go
-func StartProvider(cfg StartConfig) node.StartFuncCtx[string] {
+func StartProvider(_ context.Context, cfg StartConfig) (node.StartFuncCtx[string], error) {
 	return func(_ context.Context, out chan<- string) {
 		out <- cfg.Prefix + ", 1"
 		out <- cfg.Prefix + ", 2"
 		out <- cfg.Prefix + ", 3"
-	}
+	}, nil
 }
 
-func MiddleProvider(_ MiddleConfig) node.MiddleFunc[string, string] {
+func MiddleProvider(_ context.Context, _ MiddleConfig) (node.MiddleFunc[string, string], error) {
 	return func(in <-chan string, out chan<- string) {
 		for i := range in {
 			out <- strings.ToUpper(i)
 		}
-	}
+	}, nil
 }
 
-func TerminalProvider(_ TerminalConfig) node.TerminalFunc[string] {
+func TerminalProvider(_ context.Context, _ TerminalConfig) (node.TerminalFunc[string], error) {
 	return func(in <-chan string) {
 		for i := range in {
 			fmt.Println(i)
 		}
-	}
+	}, nil
 }
 ```
 
@@ -133,7 +133,7 @@ The created `Builder` provides the `Build(config)` method, that accepts a config
 describing the Graph: each node instance with its Instance ID, and the map of connections:
 
 ```go
-grp, err := builder.Build(Config{
+grp, err := builder.Build(context.Background(), Config{
     Starts: []StartConfig{
         {Instance: "helloer", Prefix: "Hello"},
         {Instance: "hier", Prefix: "Hi"},
