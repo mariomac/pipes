@@ -31,31 +31,31 @@ type Config struct {
 	Terminal        TerminalConfig
 }
 
-func StartProvider(cfg StartConfig) node.StartFuncCtx[string] {
+func StartProvider(_ context.Context, cfg StartConfig) (node.StartFuncCtx[string], error) {
 	return func(_ context.Context, out chan<- string) {
 		out <- cfg.Prefix + ", 1"
 		out <- cfg.Prefix + ", 2"
 		out <- cfg.Prefix + ", 3"
 		// a node is ended when its internal function ends
-	}
+	}, nil
 }
 
-func MiddleProvider(_ MiddleConfig) node.MiddleFunc[string, string] {
+func MiddleProvider(_ context.Context, _ MiddleConfig) (node.MiddleFunc[string, string], error) {
 	return func(in <-chan string, out chan<- string) {
 		// a middle and terminal node shouldn't end until its previous node ends and
 		// all the input is processed
 		for i := range in {
 			out <- strings.ToUpper(i)
 		}
-	}
+	}, nil
 }
 
-func TerminalProvider(_ TerminalConfig) node.TerminalFunc[string] {
+func TerminalProvider(_ context.Context, _ TerminalConfig) (node.TerminalFunc[string], error) {
 	return func(in <-chan string) {
 		for i := range in {
 			fmt.Println(i)
 		}
-	}
+	}, nil
 }
 
 func main() {
@@ -65,7 +65,7 @@ func main() {
 	graph.RegisterMiddle(builder, MiddleProvider)
 	graph.RegisterTerminal(builder, TerminalProvider)
 
-	grp, err := builder.Build(Config{
+	grp, err := builder.Build(context.Background(), Config{
 		Starts: []StartConfig{
 			{Instance: "helloer", Prefix: "Hello"},
 			{Instance: "hier", Prefix: "Hi"},

@@ -22,7 +22,7 @@ type Http struct {
 
 // HttpIngestProvider listens for HTTP connections and forwards them. The instantiator
 // needs to receive a stage.Http instance.
-var HttpIngestProvider = func(c Http) node.StartFuncCtx[[]byte] {
+var HttpIngestProvider = func(_ context.Context, c Http) (node.StartFuncCtx[[]byte], error) {
 	port := c.Port
 	if port == 0 {
 		port = defaultPort
@@ -45,7 +45,7 @@ var HttpIngestProvider = func(c Http) node.StartFuncCtx[[]byte] {
 				out <- body
 			}))
 		log.WithError(err).Warn("HTTP server ended")
-	}
+	}, nil
 }
 
 type Stdout struct {
@@ -54,12 +54,12 @@ type Stdout struct {
 }
 
 // StdOutExportProvider receives any message and prints it, prepending a given message
-var StdOutExportProvider = func(c Stdout) node.TerminalFunc[string] {
+var StdOutExportProvider = func(_ context.Context, c Stdout) (node.TerminalFunc[string], error) {
 	return func(in <-chan string) {
 		for s := range in {
 			fmt.Println(c.Prepend + s)
 		}
-	}
+	}, nil
 }
 
 type Deleter struct {
@@ -68,7 +68,7 @@ type Deleter struct {
 }
 
 // FieldDeleterTransformProvider receives a map and removes the configured fields from it
-var FieldDeleterTransformProvider = func(c Deleter) node.MiddleFunc[map[string]any, map[string]any] {
+var FieldDeleterTransformProvider = func(_ context.Context, c Deleter) (node.MiddleFunc[map[string]any, map[string]any], error) {
 	toDelete := map[string]struct{}{}
 	for _, f := range c.Fields {
 		toDelete[fmt.Sprint(f)] = struct{}{}
@@ -80,5 +80,5 @@ var FieldDeleterTransformProvider = func(c Deleter) node.MiddleFunc[map[string]a
 			}
 			out <- m
 		}
-	}
+	}, nil
 }

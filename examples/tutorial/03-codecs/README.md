@@ -107,7 +107,7 @@ gb := graph.NewBuilder()
 graph.RegisterStart(gb, Generator)
 graph.RegisterTerminal(gb, Printer)
 
-grp, err := gb.Build(Config{
+grp, err := gb.Build(context.Background(), Config{
     Generator: GeneratorConfig{
         Instance:   "generator",
         LowerBound: -10,
