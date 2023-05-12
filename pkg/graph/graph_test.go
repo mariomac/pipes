@@ -777,3 +777,75 @@ func TestMultiNode(t *testing.T) {
 
 	assert.Equal(t, map[int]struct{}{2: {}, 4: {}, 6: {}, 202: {}, 204: {}, 206: {}}, map1)
 }
+
+// This tests that we can combine struct annotations with Connector implementation
+func TestBasic_CombineAnnotations(t *testing.T) {
+	b := NewBuilder()
+
+	type CounterCfg struct {
+		From int
+		To   int
+	}
+	RegisterStart(b, func(_ context.Context, cfg CounterCfg) (node.StartFuncCtx[int], error) {
+		return func(_ context.Context, out chan<- int) {
+			for i := cfg.From; i <= cfg.To; i++ {
+				out <- i
+			}
+		}, nil
+	})
+
+	type DoublerCfg struct {
+	}
+	RegisterMiddle(b, func(_ context.Context, _ DoublerCfg) (node.MiddleFunc[int, int], error) {
+		return func(in <-chan int, out chan<- int) {
+			for n := range in {
+				out <- n * 2
+			}
+		}, nil
+	})
+
+	type MapperCfg struct {
+		stage.Instance
+		Dst map[int]struct{}
+	}
+	RegisterTerminal(b, func(_ context.Context, cfg MapperCfg) (node.TerminalFunc[int], error) {
+		return func(in <-chan int) {
+			for n := range in {
+				cfg.Dst[n] = struct{}{}
+			}
+		}, nil
+	})
+
+	type config struct {
+		Starts CounterCfg `nodeId:"s" sendTo:"m"`
+		Middle DoublerCfg `nodeId:"m"`
+		Term   []MapperCfg
+		Connector
+	}
+	map1, map2 := map[int]struct{}{}, map[int]struct{}{}
+	g, err := b.Build(context.TODO(), config{
+		Starts: CounterCfg{From: 1, To: 5},
+		Middle: DoublerCfg{},
+		Term: []MapperCfg{
+			{Dst: map1, Instance: "t1"},
+			{Dst: map2, Instance: "t2"}},
+		Connector: Connector{
+			"m": {"t1", "t2"},
+		},
+	})
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+	go func() {
+		g.Run(context.Background())
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		require.Fail(t, "timeout while waiting for graph to complete")
+	}
+
+	assert.Equal(t, map[int]struct{}{2: {}, 4: {}, 6: {}, 8: {}, 10: {}}, map1)
+	assert.Equal(t, map1, map2)
+}
