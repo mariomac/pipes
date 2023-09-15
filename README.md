@@ -38,7 +38,7 @@ There are three types of nodes:
 With the low-level API, you can instantiate each node and connect it manually. It is simple and
 efficient for Graphs whose structure is known at code time.
 
-For illustrative examples, you can have a look to the [basic low-level example](./examples/lowlevel-basic) and the [first chapter of the step-by-step tutorial](./examples/tutorial).
+For illustrative examples, you can have a look to the [basic low-level example](./examples/lowlevel-basic) and the [first chapter of the step-by-step tutorial](docs/tutorial).
 
 
 ## Graph high-level API
@@ -60,4 +60,4 @@ Given a configuration that contains all the Node configuration types as fields, 
 a graph builder will accordingly instantiate all the nodes and codecs (if necessary) and wire them.
 
 For more illustrative examples, check the [graph-autopipe example](./examples/graph-autopipe) and
-the [step-by-step tutorial](./examples/tutorial).
+the [step-by-step tutorial](docs/tutorial).
