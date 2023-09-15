@@ -1,5 +1,13 @@
 # CHANGELOG
 
+# next
+* **BREAKING CHANGE**: Removed `context.Context` arguments from the API: `builder.Build`, `graph.Run`,
+  `AsStartCtx`, etc... including the changes added in v0.7.0: Provider functions do not need a context anymore.
+  From now on, if you want to handle contexts or other shared global data, you should use wrappers
+  for the producer functions.
+* **BREAKING CHANGE**: low-level `SendsTo` method has been renamed to `SendTo`, for consistency
+  with the high-level annotation.
+
 # v0.7.0
 * **BREAKING CHANGE**: StartProvider, MiddleProvider and TermProvider now accept a context that is
   can be enriched by the sender nodes, and can return an error that would cause the pipe build

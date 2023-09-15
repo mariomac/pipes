@@ -1,7 +1,6 @@
 package node
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -35,12 +34,12 @@ func TestBasicGraph(t *testing.T) {
 		       \      /
 		        printer
 	*/
-	start1.SendsTo(evens, odds)
-	start2.SendsTo(evens, odds)
-	odds.SendsTo(oddsMsg)
-	evens.SendsTo(evensMsg)
-	oddsMsg.SendsTo(collector)
-	evensMsg.SendsTo(collector)
+	start1.SendTo(evens, odds)
+	start2.SendTo(evens, odds)
+	odds.SendTo(oddsMsg)
+	evens.SendTo(evensMsg)
+	oddsMsg.SendTo(collector)
+	evensMsg.SendTo(collector)
 
 	start1.Start()
 	start2.Start()
@@ -104,8 +103,8 @@ func TestConfigurationOptions_UnbufferedChannelCommunication(t *testing.T) {
 		graphOut <- n
 		close(endTerm)
 	})
-	init.SendsTo(middle)
-	middle.SendsTo(term)
+	init.SendTo(middle)
+	middle.SendTo(term)
 	init.Start()
 
 	graphIn <- 123
@@ -167,8 +166,8 @@ func TestConfigurationOptions_BufferedChannelCommunication(t *testing.T) {
 		graphOut <- n
 		close(endTerm)
 	}, ChannelBufferLen(1))
-	init.SendsTo(middle)
-	middle.SendsTo(term)
+	init.SendTo(middle)
+	middle.SendTo(term)
 	init.Start()
 
 	graphIn <- 123
@@ -205,51 +204,9 @@ func TestConfigurationOptions_BufferedChannelCommunication(t *testing.T) {
 
 }
 
-func TestContexts(t *testing.T) {
-	endStart, endTerm := make(chan struct{}), make(chan struct{})
-
-	init := AsStartCtx(func(ctx context.Context, out chan<- int) {
-		<-ctx.Done()
-		close(endStart)
-	})
-	term := AsTerminal(func(in <-chan int) {
-		<-in
-		close(endTerm)
-	})
-	init.SendsTo(term)
-	ctx, cancel := context.WithCancel(context.Background())
-	init.StartCtx(ctx)
-
-	// check that, if the context is still open, no channels are closed
-	select {
-	case <-endStart:
-		require.Fail(t, "expected that start node is still running")
-	default: //ok!
-	}
-	select {
-	case <-endTerm:
-		require.Fail(t, "expected that terminal node is still running")
-	default: //ok!
-	}
-
-	cancel()
-
-	// check that, when the context is closed, all channels are closed
-	select {
-	case <-endStart: //ok!
-	case <-time.After(timeout):
-		require.Fail(t, "timeout while waiting for the init node to finish")
-	}
-	select {
-	case <-endTerm: //ok!
-	case <-time.After(timeout):
-		require.Fail(t, "timeout while waiting for the term node to finish")
-	}
-}
-
 func TestMultiNodes(t *testing.T) {
 	// Like testBasicGraph but grouping multi-function nodes
-	starts := AsStartCtx(CounterCtx(1, 3), CounterCtx(6, 8))
+	starts := AsStart(Counter(1, 3), Counter(6, 8))
 	odds := AsMiddle(OddFilter)
 	evens := AsMiddle(EvenFilter)
 	oddsMsg := AsMiddle(Messager("odd"))
@@ -269,11 +226,11 @@ func TestMultiNodes(t *testing.T) {
 		       \      /
 		        printer
 	*/
-	starts.SendsTo(evens, odds)
-	odds.SendsTo(oddsMsg)
-	evens.SendsTo(evensMsg)
-	oddsMsg.SendsTo(collector)
-	evensMsg.SendsTo(collector)
+	starts.SendTo(evens, odds)
+	odds.SendTo(oddsMsg)
+	evens.SendTo(evensMsg)
+	oddsMsg.SendTo(collector)
+	evensMsg.SendTo(collector)
 
 	starts.Start()
 
@@ -294,15 +251,7 @@ func TestMultiNodes(t *testing.T) {
 	}, collected)
 }
 
-func CounterCtx(from, to int) StartFuncCtx[int] {
-	return func(_ context.Context, out chan<- int) {
-		for i := from; i <= to; i++ {
-			out <- i
-		}
-	}
-}
-
-func Counter(from, to int) func(out chan<- int) {
+func Counter(from, to int) StartFunc[int] {
 	return func(out chan<- int) {
 		for i := from; i <= to; i++ {
 			out <- i

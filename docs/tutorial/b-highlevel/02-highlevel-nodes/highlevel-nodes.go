@@ -2,9 +2,9 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"io"
 	"log"
+	"os"
 	"strings"
 
 	"github.com/mariomac/pipes/pkg/graph"
@@ -29,8 +29,8 @@ type Grepper struct {
 	Writer LineWriter `nodeId:"writer"`
 }
 
-func LineReaderProvider(_ context.Context, cfg LineReader) (node.StartFuncCtx[string], error) {
-	return func(_ context.Context, out chan<- string) {
+func LineReaderProvider(cfg LineReader) (node.StartFunc[string], error) {
+	return func(out chan<- string) {
 		scan := bufio.NewScanner(cfg.Input)
 		for scan.Scan() {
 			out <- scan.Text()
@@ -43,7 +43,7 @@ func LineReaderProvider(_ context.Context, cfg LineReader) (node.StartFuncCtx[st
 	}, nil
 }
 
-func WordFilterProvider(_ context.Context, cfg WordFilter) node.MiddleFunc[string, string] {
+func WordFilterProvider(cfg WordFilter) (node.MiddleFunc[string, string], error) {
 	// a middle and terminal node shouldn't end until its previous node ends and
 	// all the input is processed
 	return func(in <-chan string, out chan<- string) {
@@ -53,19 +53,36 @@ func WordFilterProvider(_ context.Context, cfg WordFilter) node.MiddleFunc[strin
 				out <- line
 			}
 		}
-	}
+	}, nil
 }
 
-func LineWriterProvider(_ context.Context, cfg LineWriter) node.TerminalFunc[string] {
+func LineWriterProvider(cfg LineWriter) (node.TerminalFunc[string], error) {
 	return func(in <-chan string) {
 		for line := range in {
 			// ignore error handling for the sake of brevity
 			_, _ = cfg.Output.Write(append([]byte(line), '\n'))
 		}
-	}
+	}, nil
 }
 
 func main() {
+	// Create Graph builder and register all the node types
 	graphBuilder := graph.NewBuilder()
 	graph.RegisterStart(graphBuilder, LineReaderProvider)
+	graph.RegisterMiddle(graphBuilder, WordFilterProvider)
+	graph.RegisterTerminal(graphBuilder, LineWriterProvider)
+
+	// Build graph from a given configuration, and run it
+	grepper, err := graphBuilder.Build(Grepper{
+		Reader: LineReader{Input: strings.NewReader("hello, my friend\n" +
+			"how are you?\n" +
+			"I said hello but\n" +
+			"I need to say goodbye")},
+		Filter: WordFilter{Match: "hello"},
+		Writer: LineWriter{Output: os.Stdout},
+	})
+	if err != nil {
+		log.Panic("building graph", err)
+	}
+	grepper.Run()
 }

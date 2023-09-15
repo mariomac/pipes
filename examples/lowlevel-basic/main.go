@@ -81,12 +81,12 @@ func main() {
 		        printer
 	*/
 	// Manually wiring the nodes
-	start1.SendsTo(evens, odds)
-	start2.SendsTo(evens, odds)
-	odds.SendsTo(oddsMsg)
-	evens.SendsTo(evensMsg)
-	oddsMsg.SendsTo(printer)
-	evensMsg.SendsTo(printer)
+	start1.SendTo(evens, odds)
+	start2.SendTo(evens, odds)
+	odds.SendTo(oddsMsg)
+	evens.SendTo(evensMsg)
+	oddsMsg.SendTo(printer)
+	evensMsg.SendTo(printer)
 
 	// All the init nodes must be started
 	start1.Start()
