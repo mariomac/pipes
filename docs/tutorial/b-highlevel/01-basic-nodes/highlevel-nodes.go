@@ -11,18 +11,23 @@ import (
 	"github.com/mariomac/pipes/pkg/node"
 )
 
+// LineReader node configuration
 type LineReader struct {
 	Input io.Reader
 }
 
+// WordFilter node configuration
 type WordFilter struct {
 	Match string
 }
 
+// LineWriter node configuration
 type LineWriter struct {
 	Output io.Writer
 }
 
+// Grepper defines the nodes of a processing graph
+// and how they are connected each other
 type Grepper struct {
 	Reader LineReader `nodeId:"reader" sendTo:"filter"`
 	Filter WordFilter `nodeId:"filter" sendTo:"writer"`
@@ -73,11 +78,13 @@ func main() {
 	graph.RegisterTerminal(graphBuilder, LineWriterProvider)
 
 	// Build graph from a given configuration, and run it
+	input := strings.NewReader("hello, my friend\n" +
+		"how are you?\n" +
+		"I said hello but\n" +
+		"I need to say goodbye")
+
 	grepper, err := graphBuilder.Build(Grepper{
-		Reader: LineReader{Input: strings.NewReader("hello, my friend\n" +
-			"how are you?\n" +
-			"I said hello but\n" +
-			"I need to say goodbye")},
+		Reader: LineReader{Input: input},
 		Filter: WordFilter{Match: "hello"},
 		Writer: LineWriter{Output: os.Stdout},
 	})
