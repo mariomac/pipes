@@ -1,5 +1,8 @@
 # Tutorial 02: basic nodes in High-Level API
 
+> ⚠️ This document is outdated and the code examples could not compile in a
+> recent version of Pipes. Stay tuned for a newer version
+
 In the previous tutorial about the [basics of the low-level API](../lowlevel/01-nodes/), the example graph was statically built during the
 coding time. This is, its architecture was known at compile time.
 
