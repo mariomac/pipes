@@ -7,6 +7,10 @@
 
 ## High-Level API
 
+The high-level API relies internally on the low-level API, so
+it is recommended to first follow the low-level API tutorials
+for a better understanding of the underlying behavior.
+
 2. [High-Level API: basic nodes](b-highlevel/02-highlevel-nodes/)
 3. High-Level API: optional nodes
 4. [High-Level API: dynamic nodes](b-highlevel/04-dynamic-nodes/)
