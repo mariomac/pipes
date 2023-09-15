@@ -1,4 +1,4 @@
-# Tutorial 02: basic nodes in High-Level API
+# High-Level API tutorial 01: basic nodes in High-Level API
 
 In the previous tutorial about the [basics of the low-level API](../lowlevel/01-nodes/), the nodes
 of the example graph were explicitly instantiated and connected with the `SendTo`
