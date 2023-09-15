@@ -1,4 +1,4 @@
-# Tutorial 01: basic nodes in Low-Level API
+# Low-level API 01: basic nodes
 
 In this tutorial, we will create a basic graph using the Low-Level API, to show the basic structure of a Graph.
 

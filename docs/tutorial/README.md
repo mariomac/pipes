@@ -2,7 +2,8 @@
 
 ## Low-Level API
 
-1. [Low-Level API: basic nodes](a-lowlevel/01-nodes/)
+1. [Basic nodes](a-lowlevel/01-nodes/)
+2. [How node connections work](a-lowlevel/02-connections)
 
 ## High-Level API
 
