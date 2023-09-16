@@ -1,21 +1,22 @@
 # High-Level API tutorial 02: annotations to compose a graph
 
-The [previous tutorial](../01-basic-nodes/) shown how to use the
-`nodeId` and `sendTo` annotations to compose a graph:
+The [previous tutorial](../01-basic-nodes/) shown how to use the `sendTo` annotation
+to compose a graph, and barely mentioned the `nodeId` annotation to
+override the node ID:
 
 ```go
 type Grepper struct {
-	Reader LineReader `nodeId:"reader" sendTo:"filter"`
-	Filter WordFilter `nodeId:"filter" sendTo:"writer"`
-	Writer LineWriter `nodeId:"writer"`
+    Reader LineReader `sendTo:"Filter"`
+    Filter WordFilter `sendTo:"Writer"`
+    Writer LineWriter
 }
 ```
 
 
 ```mermaid
 graph LR
-    R(reader) -->|lines...| F(filter)
-    F -->|filtered lines| W(writer)
+    R(Reader) -->|lines...| F(Filter)
+    F -->|filtered lines| W(Writer)
 ```
 
 The rest of this tutorial explains in detail all the annotations that
@@ -23,12 +24,24 @@ can be used to compose Pipes' graphs.
 
 ## `nodeId` annotation
 
-This is a mandatory property for each node. It will specify a unique
-identifier for that node.
+Each struct field representing a node in the Graph requires a unique
+identifier to allow referring to it. For example in the `sendTo`
+annotation.
+
+By default, the ID is the name of each struct field, but you can
+override its ID with the `nodeId` annotation:
+
+```go
+type Grepper struct {
+    Reader LineReader `nodeId:"r" sendTo:"f"`
+    Filter WordFilter `nodeId:"f" sendTo:"w"`
+    Writer LineWriter `nodeId:"w"`
+}
+```
 
 If a given struct field does not correspond to any node (for example, is
 just a global configuration value), you can set the value of `nodeId:"-"`
-and it will be ignored. For example:
+and that node will be ignored. For example:
 
 ```go
 type Grepper struct {

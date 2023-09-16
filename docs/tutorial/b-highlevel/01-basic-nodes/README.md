@@ -41,6 +41,18 @@ The above example defines the configuration for the three nodes as
 custom structs, and a bigger `Grepper` struct that joins the
 configuration of each node, as well as the the nodes are connected.
 
+The `Grepper` struct (could take another name of your preference)
+defines each Graph node as a srtuct field, and connects them via
+the `sendTo` annotation; so the `Reader` node sends the data to
+the `Filter` node and the `Filter` node sends the data to the
+`Writer` node:
+
+```mermaid
+graph LR
+    R(Reader) -->|lines...| F(Filter)
+    F -->|filtered lines| W(Writer)
+```
+
 The Pipes library provides a `graph.Builder` type that would allow
 generating a graph from the above configuration, but we first need
 to specify how the `graph.Builder` can associate a given
@@ -175,7 +187,7 @@ its execution. If you want to keep the execution going, you must run the graph i
 goroutine:
 
 ```go
-grp.Run()
+go grp.Run()
 ```
 
 The above configuration will build a graph equivalent to the graph of the previous

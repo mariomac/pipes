@@ -87,6 +87,7 @@ func TestTypeCapture(t *testing.T) {
 
 func TestConfigurationOptions_UnbufferedChannelCommunication(t *testing.T) {
 	graphIn, graphOut := make(chan int), make(chan int)
+	unblockReads := make(chan struct{})
 	endStart, endMiddle, endTerm := make(chan struct{}), make(chan struct{}), make(chan struct{})
 	init := AsStart(func(out chan<- int) {
 		n := <-graphIn
@@ -94,6 +95,7 @@ func TestConfigurationOptions_UnbufferedChannelCommunication(t *testing.T) {
 		close(endStart)
 	})
 	middle := AsMiddle(func(in <-chan int, out chan<- int) {
+		<-unblockReads
 		n := <-in
 		out <- n
 		close(endMiddle)
@@ -126,6 +128,7 @@ func TestConfigurationOptions_UnbufferedChannelCommunication(t *testing.T) {
 	default: //ok!
 	}
 	// After the last stage has exported the data, the rest of the channels are unblocked
+	close(unblockReads)
 	select {
 	case <-graphOut: //ok!
 	case <-time.After(timeout):
