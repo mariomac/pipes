@@ -29,10 +29,11 @@ type LineWriter struct {
 
 // Grepper defines the nodes of a processing graph
 // and how they are connected each other
+```go
 type Grepper struct {
-	Reader LineReader `nodeId:"reader" sendTo:"filter"`
-	Filter WordFilter `nodeId:"filter" sendTo:"writer"`
-	Writer LineWriter `nodeId:"writer"`
+  Reader LineReader `sendTo:"Filter"`
+  Filter WordFilter `sendTo:"Writer"`
+  Writer LineWriter
 }
 ```
 
@@ -161,7 +162,7 @@ for each field:
 3. Internally creates a node executing that function.
 
 When all the nodes are instantiated, then the Graph Builder connects them according
-to the `nodeId` and `sendTo` annotations in the `type Grepper struct` definition.
+to the field names and `sendTo` annotations in the `type Grepper struct` definition.
 
 To run the graph, just execute the `Run` method of the graph:
 
@@ -183,17 +184,38 @@ annotation:
 
 ```go
 type Grepper struct {
-	Reader LineReader `nodeId:"reader" sendTo:"filter"`
-	Filter WordFilter `nodeId:"filter" sendTo:"writer"`
-	Writer LineWriter `nodeId:"writer"`
+  Reader LineReader `sendTo:"Filter"`
+  Filter WordFilter `sendTo:"Writer"`
+  Writer LineWriter
 }
 ```
 
-
 ```mermaid
 graph LR
-    R(reader) -->|lines...| F(filter)
-    F -->|filtered lines| W(writer)
+    R(Reader) -->|lines...| F(Filter)
+    F -->|filtered lines| W(Writer)
+```
+
+As long as Go lets you embedding structs, you could also compose a graph by embedding
+the structs and use the type as destination in the `sendTo` annotation:
+
+```go
+type Grepper struct {
+	LineReader `sendTo:"WordFilter"`
+	WordFilter `sendTo:"LineWriter"`
+	LineWriter
+}
+```
+
+If you want to override the node identifier that is extracted from the field name,
+you can use the `nodeId` on the field to override:
+
+```go
+type Grepper struct {
+  Reader LineReader `sendTo:"Filter"`
+  Filter WordFilter `sendTo:"std-output"`
+  Writer LineWriter `nodeId:"std-output"`
+}
 ```
 
 The advantage of using the high-level API to build the graphs are:

@@ -688,6 +688,68 @@ func TestMultiNode(t *testing.T) {
 }
 
 // This tests that we can combine struct annotations with Connector implementation
+func TestBasic_UseDefaultIDsFromFieldNames(t *testing.T) {
+	b := NewBuilder()
+
+	type CounterCfg struct {
+		From int
+		To   int
+	}
+	RegisterStart(b, func(cfg CounterCfg) (node.StartFunc[int], error) {
+		return func(out chan<- int) {
+			for i := cfg.From; i <= cfg.To; i++ {
+				out <- i
+			}
+		}, nil
+	})
+
+	type DoublerCfg struct {
+	}
+	RegisterMiddle(b, func(_ DoublerCfg) (node.MiddleFunc[int, int], error) {
+		return func(in <-chan int, out chan<- int) {
+			for n := range in {
+				out <- n * 2
+			}
+		}, nil
+	})
+	type MapperCfg struct {
+		Dst map[int]struct{}
+	}
+	RegisterTerminal(b, func(cfg MapperCfg) (node.TerminalFunc[int], error) {
+		return func(in <-chan int) {
+			for n := range in {
+				cfg.Dst[n] = struct{}{}
+			}
+		}, nil
+	})
+
+	type config struct {
+		Starts CounterCfg `sendTo:"Middle"`
+		Middle DoublerCfg `sendTo:"MapperCfg"`
+		MapperCfg
+	}
+	map1 := map[int]struct{}{}
+	g, err := b.Build(config{
+		Starts:    CounterCfg{From: 1, To: 5},
+		Middle:    DoublerCfg{},
+		MapperCfg: MapperCfg{Dst: map1},
+	})
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+	go func() {
+		g.Run()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		require.Fail(t, "timeout while waiting for graph to complete")
+	}
+
+	assert.Equal(t, map[int]struct{}{2: {}, 4: {}, 6: {}, 8: {}, 10: {}}, map1)
+}
+
 func TestBasic_CombineAnnotations(t *testing.T) {
 	b := NewBuilder()
 
@@ -712,7 +774,14 @@ func TestBasic_CombineAnnotations(t *testing.T) {
 			}
 		}, nil
 	})
-
+	type Decrementer struct{}
+	RegisterMiddle(b, func(_ Decrementer) (node.MiddleFunc[int, int], error) {
+		return func(in <-chan int, out chan<- int) {
+			for n := range in {
+				out <- n - 1
+			}
+		}, nil
+	})
 	type MapperCfg struct {
 		stage.Instance
 		Dst map[int]struct{}
@@ -725,9 +794,13 @@ func TestBasic_CombineAnnotations(t *testing.T) {
 		}, nil
 	})
 
+	// combining different types of identification and merging:
+	// identifying nodes either as stage.Instance, nodeId annotation or default struct name
+	// connecting nodes both with sendTo and Connector data.
 	type config struct {
-		Starts CounterCfg `nodeId:"s" sendTo:"m"`
-		Middle DoublerCfg `nodeId:"m"`
+		Starts CounterCfg  `nodeId:"s" sendTo:"Middle"`
+		Middle DoublerCfg  `sendTo:"d"`
+		Decr   Decrementer `nodeId:"d"`
 		Term   MapperCfg
 		Connector
 	}
@@ -735,9 +808,10 @@ func TestBasic_CombineAnnotations(t *testing.T) {
 	g, err := b.Build(config{
 		Starts: CounterCfg{From: 1, To: 5},
 		Middle: DoublerCfg{},
+		Decr:   Decrementer{},
 		Term:   MapperCfg{Dst: map1, Instance: "t1"},
 		Connector: Connector{
-			"m": {"t1"},
+			"d": {"t1"},
 		},
 	})
 	require.NoError(t, err)
@@ -753,8 +827,5 @@ func TestBasic_CombineAnnotations(t *testing.T) {
 		require.Fail(t, "timeout while waiting for graph to complete")
 	}
 
-	assert.Equal(t, map[int]struct{}{2: {}, 4: {}, 6: {}, 8: {}, 10: {}}, map1)
+	assert.Equal(t, map[int]struct{}{1: {}, 3: {}, 5: {}, 7: {}, 9: {}}, map1)
 }
-
-// TODO: test combination using field names as default IDs.
-// TEST: test combination with embedded fields

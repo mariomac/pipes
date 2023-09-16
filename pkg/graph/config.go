@@ -9,7 +9,6 @@ import (
 )
 
 var connectorType = reflect.TypeOf(Connector{})
-var graphInstanceType = reflect.TypeOf(stage.Instance(""))
 
 // Connector is a convenience implementor of the ConnectedConfig interface, required
 // to build any graph. It can be embedded into any configuration struct that is passed

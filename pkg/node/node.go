@@ -1,6 +1,8 @@
 // Package node provides functionalities to create nodes and interconnect them.
 // A Node is a function container that can be connected via channels to other nodes.
 // A node can send data to multiple nodes, and receive data from multiple nodes.
+//
+//nolint:unused
 package node
 
 import (

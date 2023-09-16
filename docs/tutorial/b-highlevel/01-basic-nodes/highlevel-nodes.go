@@ -29,9 +29,9 @@ type LineWriter struct {
 // Grepper defines the nodes of a processing graph
 // and how they are connected each other
 type Grepper struct {
-	Reader LineReader `nodeId:"reader" sendTo:"filter"`
-	Filter WordFilter `nodeId:"filter" sendTo:"writer"`
-	Writer LineWriter `nodeId:"writer"`
+	Reader LineReader `sendTo:"Filter"`
+	Filter WordFilter `sendTo:"Writer"`
+	Writer LineWriter
 }
 
 func LineReaderProvider(cfg LineReader) (node.StartFunc[string], error) {
