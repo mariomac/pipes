@@ -1,6 +1,7 @@
-# Design document for graph composition API
+# Roadmap document for graph composition API
 
-For a future 1.0 version. Includes breaking changes with current API.
+> ⚠️ do not use this as an official API documentation. This just enumerates
+> some features, and many of them aren't yet implemented or directly deprecated.
 
 ## Assumptions
 

@@ -4,8 +4,9 @@ import (
 	"testing"
 	"time"
 
-	helpers "github.com/mariomac/pipes/pkg/test"
 	"github.com/stretchr/testify/assert"
+
+	helpers "github.com/mariomac/pipes/pkg/test"
 )
 
 const timeout = 2 * time.Second

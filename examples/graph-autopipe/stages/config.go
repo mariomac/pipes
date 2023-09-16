@@ -1,10 +1,12 @@
 package stages
 
 import (
-	"github.com/hashicorp/hcl/v2/hclsimple"
-	"github.com/mariomac/pipes/pkg/graph"
 	"io"
 	"io/ioutil"
+
+	"github.com/hashicorp/hcl/v2/hclsimple"
+
+	"github.com/mariomac/pipes/pkg/graph"
 )
 
 type PipeConfig struct {

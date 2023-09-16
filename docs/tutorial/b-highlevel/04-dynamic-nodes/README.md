@@ -1,6 +1,9 @@
 # Tutorial 02: basic nodes in High-Level API
 
-In the previous tutorial about the [basics of the low-level API](../01-lowlevel-nodes/), the example graph was statically built during the
+> ⚠️ This document is outdated and the code examples could not compile in a
+> recent version of Pipes. Stay tuned for a newer version
+
+In the previous tutorial about the [basics of the low-level API](../lowlevel/01-nodes/), the example graph was statically built during the
 coding time. This is, its architecture was known at compile time.
 
 In some other scenarios, we would like to let the users of our software
@@ -32,7 +35,7 @@ type MiddleProvider[CFG, I, O any] func(context.Context, CFG) (node.MiddleFunc[I
 type TerminalProvider[CFG, I any] func(context.Context, CFG) (node.TerminalFunc[I], error)
 ```
 
-The `*Provider` functions of the [previous tutorial](../01-lowlevel-nodes/)
+The `*Provider` functions of the [previous tutorial](../lowlevel/01-nodes/)
 are very similar to the provider interfaces. But we slightly need to
 modify the `MiddleProvider` and `TerminalProvider` functions to fulfill
 the `stage.MiddleProvider` and `stage.TerminalProvider` signatures:

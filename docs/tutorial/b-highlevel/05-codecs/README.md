@@ -1,5 +1,8 @@
 # Tutorial 03: Coder/Decoders (Codecs)
 
+> ⚠️ This document is outdated and the code examples could not compile in a
+> recent version of Pipes. Stay tuned for a newer version
+
 Using the **low-level Node API**, let's create a start node that generates integers and a terminal node that
 accepts strings:
 
