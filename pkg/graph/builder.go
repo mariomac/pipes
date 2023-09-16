@@ -242,7 +242,7 @@ func (nb *Builder) instantiate(instanceID string, arg reflect.Value) error {
 		nb.inNodeNames[instanceID] = struct{}{}
 		return nil
 	}
-	return fmt.Errorf("unknown node name %q for type %q", instanceID, arg.Type())
+	return fmt.Errorf("for node ID: %q. Provider not registered for type %q", instanceID, arg.Type())
 }
 
 func (b *Builder) connect(src, dst string) error {

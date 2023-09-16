@@ -81,29 +81,7 @@ func (b *Builder) applyConfigReflect(cfgValue reflect.Value, conns map[string][]
 		if field.Type == connectorType {
 			continue
 		}
-		fieldVal := cfgValue.Field(f)
-		if fieldVal.Type().Kind() == reflect.Array || fieldVal.Type().Kind() == reflect.Slice {
-			if err := b.applyArrayOrSlice(field, fieldVal, conns); err != nil {
-				return err
-			}
-		} else {
-			if err := b.applyField(field, cfgValue.Field(f), conns); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (b *Builder) applyArrayOrSlice(field reflect.StructField, fieldVal reflect.Value, conns map[string][]string) error {
-	// If the array type is tagged as a single node, apply it as a normal field
-	// ignoring error as it is possible that an array doesn't have any instanceID but its subnodes
-	if instanceID, _ := b.instanceID(field, fieldVal); instanceID != "" {
-		return b.applyField(field, fieldVal, conns)
-	}
-	// otherwise, try to apply its elements one by one
-	for nf := 0; nf < fieldVal.Len(); nf++ {
-		if err := b.applyField(field, fieldVal.Index(nf), conns); err != nil {
+		if err := b.applyField(field, cfgValue.Field(f), conns); err != nil {
 			return err
 		}
 	}
@@ -152,10 +130,16 @@ func (b *Builder) instanceID(fieldType reflect.StructField, fieldVal reflect.Val
 	if instanceID, ok := fieldType.Tag.Lookup(nodeIdTag); ok {
 		return instanceID, nil
 	}
+	// Otherwise, let's get the struct field name
+	if fieldType.Name != "" {
+		return fieldType.Name, nil
+	}
+
 	// But fail if it is not possible
-	return "", fmt.Errorf("field of type %s should provide an 'ID() InstanceID' method or be tagged"+
-		" with a `nodeId` tag in the configuration struct. Please provide a `nodeId` tag or e.g."+
-		" embed the stage.Instance field", fieldVal.Type())
+	return "", fmt.Errorf("can't get an instance ID for the field of type %s. Please"+
+		" provide an 'ID() InstanceID' method for the type, or tag the field"+
+		" with a `nodeId` tag in the configuration struct, or just use a field with a Name",
+		fieldVal.Type())
 }
 
 // updates the connections and forwarding connections in case the field is marked as forwardTo

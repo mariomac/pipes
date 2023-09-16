@@ -1,6 +1,9 @@
 # CHANGELOG
 
 # next
+* **BREAKING CHANGE**: we don't inspect anymore array/slice types, element by element. Instead,
+  use StartMultiProvider and, when we do it, TerminalMultiprovider (we will decide what to do with
+  MiddleMultiProvider).
 * **BREAKING CHANGE**: Removed `context.Context` arguments from the API: `builder.Build`, `graph.Run`,
   `AsStartCtx`, etc... including the changes added in v0.7.0: Provider functions do not need a context anymore.
   From now on, if you want to handle contexts or other shared global data, you should use wrappers

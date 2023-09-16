@@ -51,24 +51,19 @@ func TestBasic(t *testing.T) {
 	})
 
 	type config struct {
-		Starts []CounterCfg
+		Starts CounterCfg
 		Middle DoublerCfg
-		Term   []MapperCfg
+		Term   MapperCfg
 		Connector
 	}
-	map1, map2 := map[int]struct{}{}, map[int]struct{}{}
+	map1 := map[int]struct{}{}
 	g, err := b.Build(config{
-		Starts: []CounterCfg{
-			{From: 1, To: 5, Instance: "c1"},
-			{From: 6, To: 8, Instance: "c2"}},
+		Starts: CounterCfg{From: 1, To: 5, Instance: "c1"},
 		Middle: DoublerCfg{Instance: "d"},
-		Term: []MapperCfg{
-			{Dst: map1, Instance: "m1"},
-			{Dst: map2, Instance: "m2"}},
+		Term:   MapperCfg{Dst: map1, Instance: "m1"},
 		Connector: Connector{
 			"c1": {"d"},
-			"c2": {"d"},
-			"d":  {"m1", "m2"},
+			"d":  {"m1"},
 		},
 	})
 	require.NoError(t, err)
@@ -84,8 +79,7 @@ func TestBasic(t *testing.T) {
 		require.Fail(t, "timeout while waiting for graph to complete")
 	}
 
-	assert.Equal(t, map[int]struct{}{2: {}, 4: {}, 6: {}, 8: {}, 10: {}, 12: {}, 14: {}, 16: {}}, map1)
-	assert.Equal(t, map1, map2)
+	assert.Equal(t, map[int]struct{}{2: {}, 4: {}, 6: {}, 8: {}, 10: {}}, map1)
 }
 
 func TestNodeIdAsTag(t *testing.T) {
@@ -734,18 +728,16 @@ func TestBasic_CombineAnnotations(t *testing.T) {
 	type config struct {
 		Starts CounterCfg `nodeId:"s" sendTo:"m"`
 		Middle DoublerCfg `nodeId:"m"`
-		Term   []MapperCfg
+		Term   MapperCfg
 		Connector
 	}
-	map1, map2 := map[int]struct{}{}, map[int]struct{}{}
+	map1 := map[int]struct{}{}
 	g, err := b.Build(config{
 		Starts: CounterCfg{From: 1, To: 5},
 		Middle: DoublerCfg{},
-		Term: []MapperCfg{
-			{Dst: map1, Instance: "t1"},
-			{Dst: map2, Instance: "t2"}},
+		Term:   MapperCfg{Dst: map1, Instance: "t1"},
 		Connector: Connector{
-			"m": {"t1", "t2"},
+			"m": {"t1"},
 		},
 	})
 	require.NoError(t, err)
@@ -762,5 +754,7 @@ func TestBasic_CombineAnnotations(t *testing.T) {
 	}
 
 	assert.Equal(t, map[int]struct{}{2: {}, 4: {}, 6: {}, 8: {}, 10: {}}, map1)
-	assert.Equal(t, map1, map2)
 }
+
+// TODO: test combination using field names as default IDs.
+// TEST: test combination with embedded fields
