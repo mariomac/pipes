@@ -1,6 +1,7 @@
 # CHANGELOG
 
-# next
+# v0.8.0
+
 * High-Level: You don't need the `nodeId` annotation. If undefined, it takes the struct name
   by default.
 * **BREAKING CHANGE**: we don't inspect anymore array/slice types, element by element. Instead,

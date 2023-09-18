@@ -6,7 +6,7 @@ Its main use case is the creation of [Extract-Transform-Load (ETL)](https://en.w
 components, such as data cleaners or monitoring agents.
 
 * API doc: https://pkg.go.dev/github.com/mariomac/pipes
-* Tutorial: https://github.com/mariomac/pipes/tree/main/examples/tutorial
+* Tutorial: https://github.com/mariomac/pipes/tree/main/docs/tutorial
 
 It is the upper-upstream fork version of the [Red Hat's & IBM Gopipes library](https://pkg.go.dev/github.com/netobserv/gopipes)
 and the core parts of the [Red Hat's & IBM Flowlogs pipeline](https://github.com/netobserv/flowlogs-pipeline),
@@ -38,7 +38,7 @@ There are three types of nodes:
 With the low-level API, you can instantiate each node and connect it manually. It is simple and
 efficient for Graphs whose structure is known at code time.
 
-For illustrative examples, you can have a look to the [basic low-level example](./examples/lowlevel-basic) and the [first chapter of the step-by-step tutorial](docs/tutorial).
+For illustrative examples, you can have a look at the [low-level API tutorial](docs/tutorial/a-lowlevel)
 
 
 ## Graph high-level API
@@ -59,5 +59,5 @@ This API allows registering Node Generators and Codecs:
 Given a configuration that contains all the Node configuration types as fields, and a connection map,
 a graph builder will accordingly instantiate all the nodes and codecs (if necessary) and wire them.
 
-For more illustrative examples, check the [graph-autopipe example](./examples/graph-autopipe) and
-the [step-by-step tutorial](docs/tutorial).
+For more illustrative examples, check the the [high-level API tutorial](docs/tutorial) or the
+[graph-autopipe example](./examples/graph-autopipe).
