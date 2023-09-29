@@ -8,10 +8,8 @@ components, such as data cleaners or monitoring agents.
 * API doc: https://pkg.go.dev/github.com/mariomac/pipes
 * Tutorial: https://github.com/mariomac/pipes/tree/main/docs/tutorial
 
-It is the upper-upstream fork version of the [Red Hat's & IBM Gopipes library](https://pkg.go.dev/github.com/netobserv/gopipes)
-and the core parts of the [Red Hat's & IBM Flowlogs pipeline](https://github.com/netobserv/flowlogs-pipeline),
-where I plan to add experimental features that aren't related to any concrete product nor follow
-any peer review nor company standard.
+It is a fork version of the [Red Hat's & IBM Gopipes library](https://pkg.go.dev/github.com/netobserv/gopipes),
+but this library is not related to any concrete product.
 
 This library allows wrapping functions within Nodes of a connected Graph. In order to pass data across
 the nodes, each wrapped function must receive, as arguments, an input channel, an output channel,
