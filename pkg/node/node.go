@@ -6,6 +6,7 @@
 package node
 
 import (
+	"errors"
 	"reflect"
 
 	"github.com/mariomac/pipes/pkg/node/internal/connect"
@@ -49,18 +50,22 @@ type Receiver[IN any] interface {
 // A graph must have at least one Start node.
 // An Start node must have at least one output node.
 type Start[OUT any] struct {
+	startSubNode[OUT]
+	funs []StartFunc[OUT]
+}
+
+type startSubNode[OUT any] struct {
 	outs    []Receiver[OUT]
-	funs    []StartFunc[OUT]
 	outType reflect.Type
 }
 
-func (s *Start[OUT]) SendTo(outputs ...Receiver[OUT]) {
+func (s *startSubNode[OUT]) SendTo(outputs ...Receiver[OUT]) {
 	//assertChannelsCompatibility(s.fun.ArgChannelType(0), outputs)
 	s.outs = append(s.outs, outputs...)
 }
 
 // OutType is deprecated. It will be removed in future versions.
-func (s *Start[OUT]) OutType() reflect.Type {
+func (s *startSubNode[OUT]) OutType() reflect.Type {
 	return s.outType
 }
 
@@ -130,8 +135,10 @@ func (m *Terminal[IN]) InType() reflect.Type {
 func AsStart[OUT any](funs ...StartFunc[OUT]) *Start[OUT] {
 	var out OUT
 	return &Start[OUT]{
-		funs:    funs,
-		outType: reflect.TypeOf(out),
+		funs: funs,
+		startSubNode: startSubNode[OUT]{
+			outType: reflect.TypeOf(out),
+		},
 	}
 }
 
@@ -160,11 +167,9 @@ func AsTerminal[IN any](fun TerminalFunc[IN], opts ...Option) *Terminal[IN] {
 	}
 }
 
-// Start starts the function wrapped in the Start node. This method should be invoked
-// for all the start nodes of the same graph, so the graph can properly start and finish.
-func (i *Start[OUT]) Start() {
+func (i *startSubNode[OUT]) start() (connect.Forker[OUT], error) {
 	if len(i.outs) == 0 {
-		panic("Start node should have outputs")
+		return connect.Forker[OUT]{}, errors.New("node should have outputs")
 	}
 	joiners := make([]*connect.Joiner[OUT], 0, len(i.outs))
 	for _, out := range i.outs {
@@ -173,7 +178,16 @@ func (i *Start[OUT]) Start() {
 			out.start()
 		}
 	}
-	forker := connect.Fork(joiners...)
+	return connect.Fork(joiners...), nil
+}
+
+// Start starts the function wrapped in the Start node. This method should be invoked
+// for all the start nodes of the same graph, so the graph can properly start and finish.
+func (i *Start[OUT]) Start() {
+	forker, err := i.startSubNode.start()
+	if err != nil {
+		panic("Start: " + err.Error())
+	}
 	for fn := range i.funs {
 		fun := i.funs[fn]
 		go func() {
