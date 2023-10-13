@@ -62,11 +62,11 @@ func AsStart2[OUT1, OUT2 any](funs ...StartFunc2[OUT1, OUT2]) *Start2[OUT1, OUT2
 // Start starts the function wrapped in the Start node. This method should be invoked
 // for all the start nodes of the same graph, so the graph can properly start and finish.
 func (i *Start2[OUT1, OUT2]) Start() {
-	forker1, err := i.sub1.start()
+	forker1, err := i.sub1.StartSubNode()
 	if err != nil {
 		panic("Start node output 1: " + err.Error())
 	}
-	forker2, err := i.sub2.start()
+	forker2, err := i.sub2.StartSubNode()
 	if err != nil {
 		panic("Start node output 2: " + err.Error())
 	}

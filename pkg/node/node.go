@@ -167,7 +167,7 @@ func AsTerminal[IN any](fun TerminalFunc[IN], opts ...Option) *Terminal[IN] {
 	}
 }
 
-func (i *startSubNode[OUT]) start() (connect.Forker[OUT], error) {
+func (i *startSubNode[OUT]) StartSubNode() (connect.Forker[OUT], error) {
 	if len(i.outs) == 0 {
 		return connect.Forker[OUT]{}, errors.New("node should have outputs")
 	}
@@ -184,7 +184,7 @@ func (i *startSubNode[OUT]) start() (connect.Forker[OUT], error) {
 // Start starts the function wrapped in the Start node. This method should be invoked
 // for all the start nodes of the same graph, so the graph can properly start and finish.
 func (i *Start[OUT]) Start() {
-	forker, err := i.startSubNode.start()
+	forker, err := i.startSubNode.StartSubNode()
 	if err != nil {
 		panic("Start: " + err.Error())
 	}
