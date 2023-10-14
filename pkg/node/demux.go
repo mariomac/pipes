@@ -8,27 +8,21 @@ import (
 	"github.com/mariomac/pipes/pkg/node/internal/connect"
 )
 
-// StartFunc is a function that receives a writable channel as unique argument, and sends
-// value to that channel during an indefinite amount of time.
-type StartDemuxFunc func(d DemuxGetter)
-
-type MiddleDemuxFunc[IN any] func(in <-chan IN, out DemuxGetter)
-
-type outNode[OUT any] struct {
+// receiverGroup connects a sender node with multiple receiver nodes
+type receiverGroup[OUT any] struct {
 	Outs    []Receiver[OUT]
 	outType reflect.Type
 }
 
-func (s *outNode[OUT]) SendTo(outputs ...Receiver[OUT]) {
+func (s *receiverGroup[OUT]) SendTo(outputs ...Receiver[OUT]) {
 	s.Outs = append(s.Outs, outputs...)
 }
 
-// OutType is deprecated. It will be removed in future versions.
-func (s *outNode[OUT]) OutType() reflect.Type {
+func (s *receiverGroup[OUT]) OutType() reflect.Type {
 	return s.outType
 }
 
-func (i *outNode[OUT]) StartSubNode() (*connect.Forker[OUT], error) {
+func (i *receiverGroup[OUT]) StartReceivers() (*connect.Forker[OUT], error) {
 	if len(i.Outs) == 0 {
 		return nil, errors.New("node should have outputs")
 	}
@@ -43,27 +37,25 @@ func (i *outNode[OUT]) StartSubNode() (*connect.Forker[OUT], error) {
 	return &forker, nil
 }
 
-type DemuxBuilder struct {
+type demuxBuilder struct {
 	outNodes map[any]reflect.Value
 }
 
-func (i *StartDemux) Demux() *DemuxBuilder {
-	if i.demux.outNodes == nil {
-		i.demux.outNodes = map[any]reflect.Value{}
-	}
-	return &i.demux
-}
-
 type Demuxed interface {
-	Demux() *DemuxBuilder
+	demuxBuilder() *demuxBuilder
 }
 
-type DemuxOut[OUT any] struct {
-	reflectOut reflect.Value // reflect &outNode[OUT]
-	out        outNode[OUT]
+type demuxOut[OUT any] struct {
+	reflectOut reflect.Value // reflect &receiverGroup[OUT]
+	out        receiverGroup[OUT]
 }
 
-func (do *DemuxOut[OUT]) SendTo(outs ...Receiver[OUT]) {
+func (do *demuxOut[OUT]) OutType() reflect.Type {
+	var out OUT
+	return reflect.TypeOf(out)
+}
+
+func (do *demuxOut[OUT]) SendTo(outs ...Receiver[OUT]) {
 	for _, out := range outs {
 		outSlice := do.reflectOut.Elem().FieldByName("Outs")
 		outSlice.Grow(1)
@@ -72,31 +64,39 @@ func (do *DemuxOut[OUT]) SendTo(outs ...Receiver[OUT]) {
 	}
 }
 
-func DemuxChannel[OUT any](d Demuxed, key any) *DemuxOut[OUT] {
-	demux := d.Demux()
+func DemuxAdd[OUT any](d Demuxed, key any) Sender[OUT] {
+	demux := d.demuxBuilder()
 	var out OUT
 	to := reflect.TypeOf(out)
 	outNod, ok := demux.outNodes[key]
 	if !ok {
-		outNod = reflect.ValueOf(&outNode[OUT]{outType: to})
+		outNod = reflect.ValueOf(&receiverGroup[OUT]{outType: to})
 		demux.outNodes[key] = outNod
 	}
 
-	return &DemuxOut[OUT]{reflectOut: outNod}
+	return &demuxOut[OUT]{reflectOut: outNod}
 }
 
-type DemuxGetter struct {
+type DemuxedChans struct {
 	// They: the key/name of the output
 	outChans map[any]any
 }
 
-func DemuxGet[OUT any](d DemuxGetter, key any) chan<- OUT {
+func DemuxGet[OUT any](d DemuxedChans, key any) chan<- OUT {
 	if on, ok := d.outChans[key]; !ok {
-		var t OUT
-		panic(fmt.Sprintf("Demux has not registered any sender of type %s", reflect.TypeOf(t)))
+		panic(fmt.Sprintf("Demux has not registered any sender for key %#v", key))
 	} else {
 		return on.(chan OUT)
 	}
+}
+
+type StartDemuxFunc func(d DemuxedChans)
+
+type MiddleDemuxFunc[IN any] func(in <-chan IN, out DemuxedChans)
+
+type StartDemux struct {
+	demux demuxBuilder
+	funs  []StartDemuxFunc
 }
 
 // AsStart wraps a group of StartFunc with the same signature into a Start node.
@@ -106,9 +106,11 @@ func AsStartDemux(funs ...StartDemuxFunc) *StartDemux {
 	}
 }
 
-type StartDemux struct {
-	demux DemuxBuilder
-	funs  []StartDemuxFunc
+func (i *StartDemux) demuxBuilder() *demuxBuilder {
+	if i.demux.outNodes == nil {
+		i.demux.outNodes = map[any]reflect.Value{}
+	}
+	return &i.demux
 }
 
 // Start starts the function wrapped in the Start node. This method should be invoked
@@ -116,9 +118,9 @@ type StartDemux struct {
 func (i *StartDemux) Start() {
 	// TODO: panic if no outputs?
 	releasers := make([]reflect.Value, 0, len(i.demux.outNodes))
-	demux := DemuxGetter{outChans: map[any]any{}}
+	demux := DemuxedChans{outChans: map[any]any{}}
 	for k, on := range i.demux.outNodes {
-		method := on.MethodByName("StartSubNode")
+		method := on.MethodByName("StartReceivers")
 		startResult := method.Call(nil)
 		if !startResult[1].IsNil() {
 			panic(fmt.Sprintf("Start node %s: %s", k, startResult[1].Interface()))
@@ -146,7 +148,7 @@ func (i *StartDemux) Start() {
 // An Middle node must have at least one output node.
 type MiddleDemux[IN any] struct {
 	fun     MiddleDemuxFunc[IN]
-	demux   DemuxBuilder
+	demux   demuxBuilder
 	inputs  connect.Joiner[IN]
 	started bool
 	inType  reflect.Type
@@ -178,10 +180,10 @@ func (m *MiddleDemux[IN]) InType() reflect.Type {
 func (m *MiddleDemux[IN]) start() {
 	// TODO: panic if no outputs?
 	releasers := make([]reflect.Value, 0, len(m.demux.outNodes))
-	demux := DemuxGetter{outChans: map[any]any{}}
+	demux := DemuxedChans{outChans: map[any]any{}}
 	// TODO: code repeated from startnode
 	for k, on := range m.demux.outNodes {
-		method := on.MethodByName("StartSubNode")
+		method := on.MethodByName("StartReceivers")
 		startResult := method.Call(nil)
 		if !startResult[1].IsNil() {
 			panic(fmt.Sprintf("Middle node %s: %s", k, startResult[1].Interface()))
@@ -201,7 +203,7 @@ func (m *MiddleDemux[IN]) start() {
 	}()
 }
 
-func (i *MiddleDemux[IN]) Demux() *DemuxBuilder {
+func (i *MiddleDemux[IN]) demuxBuilder() *demuxBuilder {
 	if i.demux.outNodes == nil {
 		i.demux.outNodes = map[any]reflect.Value{}
 	}

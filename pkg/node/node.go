@@ -49,7 +49,7 @@ type Receiver[IN any] interface {
 // A graph must have at least one Start node.
 // An Start node must have at least one output node.
 type Start[OUT any] struct {
-	outNode[OUT]
+	receiverGroup[OUT]
 	funs []StartFunc[OUT]
 }
 
@@ -120,7 +120,7 @@ func AsStart[OUT any](funs ...StartFunc[OUT]) *Start[OUT] {
 	var out OUT
 	return &Start[OUT]{
 		funs: funs,
-		outNode: outNode[OUT]{
+		receiverGroup: receiverGroup[OUT]{
 			outType: reflect.TypeOf(out),
 		},
 	}
@@ -154,7 +154,7 @@ func AsTerminal[IN any](fun TerminalFunc[IN], opts ...Option) *Terminal[IN] {
 // Start starts the function wrapped in the Start node. This method should be invoked
 // for all the start nodes of the same graph, so the graph can properly start and finish.
 func (i *Start[OUT]) Start() {
-	forker, err := i.outNode.StartSubNode()
+	forker, err := i.receiverGroup.StartReceivers()
 	if err != nil {
 		panic("Start: " + err.Error())
 	}

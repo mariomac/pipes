@@ -16,7 +16,7 @@ const testTimeout = 5 * time.Second
 func TestAsStartDemux(t *testing.T) {
 	type out2k struct{}
 	type out1k struct{}
-	start := AsStartDemux(func(d DemuxGetter) {
+	start := AsStartDemux(func(d DemuxedChans) {
 		out1 := DemuxGet[int](d, out1k{})
 		out2 := DemuxGet[int](d, out2k{})
 		out1 <- 1
@@ -48,9 +48,9 @@ func TestAsStartDemux(t *testing.T) {
 		slices.Sort(sorted)
 		waiter.Done()
 	})
-	do := DemuxChannel[int](start, out1k{})
+	do := DemuxAdd[int](start, out1k{})
 	do.SendTo(doubler, decer)
-	DemuxChannel[int](start, out2k{}).SendTo(divider)
+	DemuxAdd[int](start, out2k{}).SendTo(divider)
 	decer.SendTo(sorter)
 	doubler.SendTo(sorter)
 	divider.SendTo(sorter)
@@ -70,7 +70,7 @@ func TestAsMiddleDemux(t *testing.T) {
 			out <- i
 		}
 	})
-	classifier := AsMiddleDemux(func(in <-chan int, out DemuxGetter) {
+	classifier := AsMiddleDemux(func(in <-chan int, out DemuxedChans) {
 		fmt.Println("class sttart")
 		evens := DemuxGet[int32](out, "evens")
 		odds := DemuxGet[int](out, "odds")
@@ -100,8 +100,8 @@ func TestAsMiddleDemux(t *testing.T) {
 		waiter.Done()
 	})
 	start.SendTo(classifier)
-	DemuxChannel[int32](classifier, "evens").SendTo(doubler)
-	DemuxChannel[int](classifier, "odds").SendTo(sorter)
+	DemuxAdd[int32](classifier, "evens").SendTo(doubler)
+	DemuxAdd[int](classifier, "odds").SendTo(sorter)
 	doubler.SendTo(sorter)
 
 	go start.Start()
@@ -110,3 +110,9 @@ func TestAsMiddleDemux(t *testing.T) {
 
 	assert.Equal(t, []int{0, 1, 3, 4, 5, 7, 8, 9, 12, 16}, sorted)
 }
+
+// TODO
+// Test demuxed channel buffers
+// Test errors if a demux chan does not have output
+// Test panics when getting demuxes without correct key
+// Test panics when getting demuxes with wrong type
