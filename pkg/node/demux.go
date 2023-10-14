@@ -44,12 +44,12 @@ func (i *outNode[OUT]) StartSubNode() (*connect.Forker[OUT], error) {
 }
 
 type DemuxBuilder struct {
-	outNodes map[reflect.Type]reflect.Value
+	outNodes map[any]reflect.Value
 }
 
 func (i *StartDemux) Demux() *DemuxBuilder {
 	if i.demux.outNodes == nil {
-		i.demux.outNodes = map[reflect.Type]reflect.Value{}
+		i.demux.outNodes = map[any]reflect.Value{}
 	}
 	return &i.demux
 }
@@ -58,34 +58,42 @@ type Demuxed interface {
 	Demux() *DemuxBuilder
 }
 
-func DemuxSend[OUT any](d Demuxed, outs ...Receiver[OUT]) {
-	demux := d.Demux()
-	if len(outs) == 0 {
-		panic("DemuxSend needs at least one output node")
-	}
-	to := outs[0].InType()
-	outNod, ok := demux.outNodes[to]
-	if !ok {
-		outNod = reflect.ValueOf(&outNode[OUT]{outType: to})
-		demux.outNodes[to] = outNod
-	}
+type DemuxOut[OUT any] struct {
+	reflectOut reflect.Value // reflect &outNode[OUT]
+	out        outNode[OUT]
+}
+
+func (do *DemuxOut[OUT]) SendTo(outs ...Receiver[OUT]) {
 	for _, out := range outs {
-		outSlice := outNod.Elem().FieldByName("Outs")
+		outSlice := do.reflectOut.Elem().FieldByName("Outs")
 		outSlice.Grow(1)
 		outSlice.SetLen(outSlice.Cap())
 		outSlice.Index(outSlice.Cap() - 1).Set(reflect.ValueOf(out))
 	}
 }
 
-type DemuxGetter struct {
-	outChans map[reflect.Type]any
-}
-
-func DemuxGet[OUT any](d DemuxGetter) chan<- OUT {
+func DemuxChannel[OUT any](d Demuxed, key any) *DemuxOut[OUT] {
+	demux := d.Demux()
 	var out OUT
 	to := reflect.TypeOf(out)
-	if on, ok := d.outChans[to]; !ok {
-		panic(fmt.Sprintf("Demux has not registered any sender of type %s", to.String()))
+	outNod, ok := demux.outNodes[key]
+	if !ok {
+		outNod = reflect.ValueOf(&outNode[OUT]{outType: to})
+		demux.outNodes[key] = outNod
+	}
+
+	return &DemuxOut[OUT]{reflectOut: outNod}
+}
+
+type DemuxGetter struct {
+	// They: the key/name of the output
+	outChans map[any]any
+}
+
+func DemuxGet[OUT any](d DemuxGetter, key any) chan<- OUT {
+	if on, ok := d.outChans[key]; !ok {
+		var t OUT
+		panic(fmt.Sprintf("Demux has not registered any sender of type %s", reflect.TypeOf(t)))
 	} else {
 		return on.(chan OUT)
 	}
@@ -108,12 +116,12 @@ type StartDemux struct {
 func (i *StartDemux) Start() {
 	// TODO: panic if no outputs?
 	releasers := make([]reflect.Value, 0, len(i.demux.outNodes))
-	demux := DemuxGetter{outChans: map[reflect.Type]any{}}
+	demux := DemuxGetter{outChans: map[any]any{}}
 	for k, on := range i.demux.outNodes {
 		method := on.MethodByName("StartSubNode")
 		startResult := method.Call(nil)
 		if !startResult[1].IsNil() {
-			panic(fmt.Sprintf("Start node %s: %s", k.String(), startResult[1].Interface()))
+			panic(fmt.Sprintf("Start node %s: %s", k, startResult[1].Interface()))
 		}
 		forker := startResult[0]
 		demux.outChans[k] = forker.MethodByName("AcquireSender").Call(nil)[0].Interface()
@@ -170,13 +178,13 @@ func (m *MiddleDemux[IN]) InType() reflect.Type {
 func (m *MiddleDemux[IN]) start() {
 	// TODO: panic if no outputs?
 	releasers := make([]reflect.Value, 0, len(m.demux.outNodes))
-	demux := DemuxGetter{outChans: map[reflect.Type]any{}}
+	demux := DemuxGetter{outChans: map[any]any{}}
 	// TODO: code repeated from startnode
 	for k, on := range m.demux.outNodes {
 		method := on.MethodByName("StartSubNode")
 		startResult := method.Call(nil)
 		if !startResult[1].IsNil() {
-			panic(fmt.Sprintf("Middle node %s: %s", k.String(), startResult[1].Interface()))
+			panic(fmt.Sprintf("Middle node %s: %s", k, startResult[1].Interface()))
 		}
 		forker := startResult[0]
 		demux.outChans[k] = forker.MethodByName("AcquireSender").Call(nil)[0].Interface()
@@ -195,7 +203,7 @@ func (m *MiddleDemux[IN]) start() {
 
 func (i *MiddleDemux[IN]) Demux() *DemuxBuilder {
 	if i.demux.outNodes == nil {
-		i.demux.outNodes = map[reflect.Type]reflect.Value{}
+		i.demux.outNodes = map[any]reflect.Value{}
 	}
 	return &i.demux
 }

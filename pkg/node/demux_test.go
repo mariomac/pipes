@@ -14,25 +14,27 @@ import (
 const testTimeout = 5 * time.Second
 
 func TestAsStartDemux(t *testing.T) {
+	type out2k struct{}
+	type out1k struct{}
 	start := AsStartDemux(func(d DemuxGetter) {
-		out1 := DemuxGet[int32](d)
-		out2 := DemuxGet[int64](d)
+		out1 := DemuxGet[int](d, out1k{})
+		out2 := DemuxGet[int](d, out2k{})
 		out1 <- 1
 		out2 <- 10
 		out1 <- 60
 		out2 <- 30
 	})
-	doubler := AsMiddle(func(in <-chan int32, out chan<- int) {
+	doubler := AsMiddle(func(in <-chan int, out chan<- int) {
 		for i := range in {
 			out <- int(i * 2)
 		}
 	})
-	decer := AsMiddle(func(in <-chan int32, out chan<- int) {
+	decer := AsMiddle(func(in <-chan int, out chan<- int) {
 		for i := range in {
 			out <- int(i - 1)
 		}
 	})
-	divider := AsMiddle(func(in <-chan int64, out chan<- int) {
+	divider := AsMiddle(func(in <-chan int, out chan<- int) {
 		for i := range in {
 			out <- int(i / 2)
 		}
@@ -46,8 +48,9 @@ func TestAsStartDemux(t *testing.T) {
 		slices.Sort(sorted)
 		waiter.Done()
 	})
-	DemuxSend[int32](start, doubler, decer)
-	DemuxSend[int64](start, divider)
+	do := DemuxChannel[int](start, out1k{})
+	do.SendTo(doubler, decer)
+	DemuxChannel[int](start, out2k{}).SendTo(divider)
 	decer.SendTo(sorter)
 	doubler.SendTo(sorter)
 	divider.SendTo(sorter)
@@ -69,8 +72,8 @@ func TestAsMiddleDemux(t *testing.T) {
 	})
 	classifier := AsMiddleDemux(func(in <-chan int, out DemuxGetter) {
 		fmt.Println("class sttart")
-		evens := DemuxGet[int32](out)
-		odds := DemuxGet[int](out)
+		evens := DemuxGet[int32](out, "evens")
+		odds := DemuxGet[int](out, "odds")
 		for i := range in {
 			if i%2 == 0 {
 				evens <- int32(i)
@@ -97,8 +100,8 @@ func TestAsMiddleDemux(t *testing.T) {
 		waiter.Done()
 	})
 	start.SendTo(classifier)
-	DemuxSend[int32](classifier, doubler)
-	DemuxSend[int](classifier, sorter)
+	DemuxChannel[int32](classifier, "evens").SendTo(doubler)
+	DemuxChannel[int](classifier, "odds").SendTo(sorter)
 	doubler.SendTo(sorter)
 
 	go start.Start()
