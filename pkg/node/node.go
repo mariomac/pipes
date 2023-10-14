@@ -6,7 +6,6 @@
 package node
 
 import (
-	"errors"
 	"reflect"
 
 	"github.com/mariomac/pipes/pkg/node/internal/connect"
@@ -50,23 +49,8 @@ type Receiver[IN any] interface {
 // A graph must have at least one Start node.
 // An Start node must have at least one output node.
 type Start[OUT any] struct {
-	startSubNode[OUT]
+	outNode[OUT]
 	funs []StartFunc[OUT]
-}
-
-type startSubNode[OUT any] struct {
-	outs    []Receiver[OUT]
-	outType reflect.Type
-}
-
-func (s *startSubNode[OUT]) SendTo(outputs ...Receiver[OUT]) {
-	//assertChannelsCompatibility(s.fun.ArgChannelType(0), outputs)
-	s.outs = append(s.outs, outputs...)
-}
-
-// OutType is deprecated. It will be removed in future versions.
-func (s *startSubNode[OUT]) OutType() reflect.Type {
-	return s.outType
 }
 
 // Middle is any intermediate node that receives data from another node, processes/filters it,
@@ -136,7 +120,7 @@ func AsStart[OUT any](funs ...StartFunc[OUT]) *Start[OUT] {
 	var out OUT
 	return &Start[OUT]{
 		funs: funs,
-		startSubNode: startSubNode[OUT]{
+		outNode: outNode[OUT]{
 			outType: reflect.TypeOf(out),
 		},
 	}
@@ -167,24 +151,10 @@ func AsTerminal[IN any](fun TerminalFunc[IN], opts ...Option) *Terminal[IN] {
 	}
 }
 
-func (i *startSubNode[OUT]) StartSubNode() (connect.Forker[OUT], error) {
-	if len(i.outs) == 0 {
-		return connect.Forker[OUT]{}, errors.New("node should have outputs")
-	}
-	joiners := make([]*connect.Joiner[OUT], 0, len(i.outs))
-	for _, out := range i.outs {
-		joiners = append(joiners, out.joiner())
-		if !out.isStarted() {
-			out.start()
-		}
-	}
-	return connect.Fork(joiners...), nil
-}
-
 // Start starts the function wrapped in the Start node. This method should be invoked
 // for all the start nodes of the same graph, so the graph can properly start and finish.
 func (i *Start[OUT]) Start() {
-	forker, err := i.startSubNode.StartSubNode()
+	forker, err := i.outNode.StartSubNode()
 	if err != nil {
 		panic("Start: " + err.Error())
 	}
