@@ -1,7 +1,6 @@
 package node
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 
@@ -14,51 +13,43 @@ type Demuxed interface {
 	demuxBuilder() *demuxBuilder
 }
 
-// receiverGroup connects a sender node with multiple receiver nodes
-type receiverGroup[OUT any] struct {
-	Outs    []Receiver[OUT]
-	outType reflect.Type
+// Demux is a collection of multiple output channels for a
+// Demuxed node, which receives them as a second argument in its
+// StartDemuxFunc or MiddleDemuxFunc functions.
+// During the graph definition time, multiple outputs can be
+// associated to a node by means of the DemuxAdd function.
+// At runtime, you can access the multiple named output
+// channels by means of the DemuxGet function.
+type Demux struct {
+	// Key: the key/name of the output
+	outChans map[any]any
 }
 
-// SendTo connects a group of receivers to the current receiverGroup
-func (s *receiverGroup[OUT]) SendTo(outputs ...Receiver[OUT]) {
-	s.Outs = append(s.Outs, outputs...)
-}
+// StartDemuxFunc is a function that receives a Demux as unique argument,
+// and sends, during an indefinite amount of time, values to the channels
+// contained in the Demux (previously accessed by the DemuxGet function).
+type StartDemuxFunc func(d Demux)
 
-// OutType is the common input type of the receivers
-// (output of the receiver group)
-func (s *receiverGroup[OUT]) OutType() reflect.Type {
-	return s.outType
-}
+// MiddleDemuxFunc is a function that receives a readable channel as first argument,
+// and a Demux as second argument.
+// It must process the inputs from the input channel until it's closed
+// and usually forward the processed values to any of the Demux output channels
+// (previously accessed by the DemuxGet function).
+type MiddleDemuxFunc[IN any] func(in <-chan IN, out Demux)
 
-// StartReceivers start the receivers and return a connection
-// forker to them
-func (i *receiverGroup[OUT]) StartReceivers() (*connect.Forker[OUT], error) {
-	if len(i.Outs) == 0 {
-		return nil, errors.New("node should have outputs")
-	}
-	joiners := make([]*connect.Joiner[OUT], 0, len(i.Outs))
-	for _, out := range i.Outs {
-		joiners = append(joiners, out.joiner())
-		if !out.isStarted() {
-			out.start()
-		}
-	}
-	forker := connect.Fork(joiners...)
-	return &forker, nil
-}
-
-// demuxBuilder is an accessory object to specify the multiple
-// options to a demuxed node, and connect them
+// demuxBuilder is an accessory object to define, during the construction time,
+// the multiple outputs of a demuxed node
 type demuxBuilder struct {
 	// key: any value of any type, to identify the connection output
 	// value: reflect.ValueOf(&receiverGroup[OUT])
 	outNodes map[any]reflect.Value
 }
 
+// demuxOut provides reflection access to the value of a receiverGroup pointer
+// Their methods are equivalent to receiverGroup but using reflection access
+// to avoid compile-time check of generics
 type demuxOut[OUT any] struct {
-	reflectOut reflect.Value // reflect &receiverGroup[OUT]
-	out        receiverGroup[OUT]
+	reflectOut reflect.Value // reflect.ValueOf(&receiverGroup[OUT])
 }
 
 func (do *demuxOut[OUT]) OutType() reflect.Type {
@@ -68,6 +59,8 @@ func (do *demuxOut[OUT]) OutType() reflect.Type {
 
 func (do *demuxOut[OUT]) SendTo(outs ...Receiver[OUT]) {
 	for _, out := range outs {
+		// above block is equivalent to
+		// receiverGroup.Outs = append(receiverGroup.Outs, out)
 		outSlice := do.reflectOut.Elem().FieldByName("Outs")
 		outSlice.Grow(1)
 		outSlice.SetLen(outSlice.Cap())
@@ -75,6 +68,15 @@ func (do *demuxOut[OUT]) SendTo(outs ...Receiver[OUT]) {
 	}
 }
 
+// DemuxAdd is used during the graph definition/construction time.
+// It allows associating multiple output paths to a Demuxed node
+// (which can be StartDemux or MiddleDemux). It returns a Sender
+// output that can be connected to a group of output nodes for that
+// path.
+// The Sender created output is
+// identified by a key that can be any value of any type, and
+// can be later accessed from inside the node's StartDemuxFunc or
+// MiddleDemuxFunc with the DemuxGet function.
 func DemuxAdd[OUT any](d Demuxed, key any) Sender[OUT] {
 	demux := d.demuxBuilder()
 	var out OUT
@@ -88,11 +90,12 @@ func DemuxAdd[OUT any](d Demuxed, key any) Sender[OUT] {
 	return &demuxOut[OUT]{reflectOut: outNod}
 }
 
-type Demux struct {
-	// They: the key/name of the output
-	outChans map[any]any
-}
-
+// DemuxGet returns the output channel associated to the given key
+// in the provided Demux.
+// This function needs to be invoked inside a StartDemuxFunc or
+// MiddleDemuxFunc.
+// The function will panic if no output channel has been previously
+// defined at build time for that given key (using the DemuxAdd) function.
 func DemuxGet[OUT any](d Demux, key any) chan<- OUT {
 	if on, ok := d.outChans[key]; !ok {
 		panic(fmt.Sprintf("Demux has not registered any sender for key %#v", key))
@@ -101,16 +104,19 @@ func DemuxGet[OUT any](d Demux, key any) chan<- OUT {
 	}
 }
 
-type StartDemuxFunc func(d Demux)
-
-type MiddleDemuxFunc[IN any] func(in <-chan IN, out Demux)
-
+// StartDemux is equivalent to a Start node, but receiving a Demux instead
+// of a writable channel.
+// Start nodes are the starting points of a graph. This is, all the nodes that bring information
+// from outside the graph: e.g. because they generate them or because they acquire them from an
+// external source like a Web Service.
+// A graph must have at least one Start or StartDemux node.
+// A StartDemux node must have at least one output node.
 type StartDemux struct {
 	demux demuxBuilder
 	funs  []StartDemuxFunc
 }
 
-// AsStart wraps a group of StartFunc with the same signature into a Start node.
+// AsStartDemux wraps a group of StartDemuxFunc into a StartDemux node.
 func AsStartDemux(funs ...StartDemuxFunc) *StartDemux {
 	return &StartDemux{
 		funs: funs,
@@ -124,23 +130,29 @@ func (i *StartDemux) demuxBuilder() *demuxBuilder {
 	return &i.demux
 }
 
-// Start starts the function wrapped in the Start node. This method should be invoked
+// Start starts the function wrapped in the StartDemux node. This method should be invoked
 // for all the start nodes of the same graph, so the graph can properly start and finish.
 func (i *StartDemux) Start() {
 	// TODO: panic if no outputs?
 	releasers := make([]reflect.Value, 0, len(i.demux.outNodes))
 	demux := Demux{outChans: map[any]any{}}
 	for k, on := range i.demux.outNodes {
+		// forker, err := on.StartReceivers()
 		method := on.MethodByName("StartReceivers")
 		startResult := method.Call(nil)
+		// if err != nil {
 		if !startResult[1].IsNil() {
 			panic(fmt.Sprintf("Start node %s: %s", k, startResult[1].Interface()))
 		}
+		// outChans[k] = forker.AcquireSender()
 		forker := startResult[0]
 		demux.outChans[k] = forker.MethodByName("AcquireSender").Call(nil)[0].Interface()
+		// releasers = append(releasers, forker.ReleaseSender())
 		releasers = append(releasers, forker.MethodByName("ReleaseSender"))
 	}
 
+	// Invocation to all the start node functions, with
+	// deferred invocation to the ReleaseSender methods that were previously collected
 	for fn := range i.funs {
 		fun := i.funs[fn]
 		go func() {
@@ -154,9 +166,9 @@ func (i *StartDemux) Start() {
 	}
 }
 
-// Middle is any intermediate node that receives data from another node, processes/filters it,
-// and forwards the data to another node.
-// An Middle node must have at least one output node.
+// MiddleDemux is any intermediate node that receives data from another node, processes/filters it,
+// and forwards the data any of the output channels in the provided Demux.
+// An MiddleDemux node must have at least one output node.
 type MiddleDemux[IN any] struct {
 	fun     MiddleDemuxFunc[IN]
 	demux   demuxBuilder
@@ -165,7 +177,7 @@ type MiddleDemux[IN any] struct {
 	inType  reflect.Type
 }
 
-// AsMiddle wraps an MiddleDemuxFunc into an MiddleDemux node.
+// AsMiddleDemux wraps an MiddleDemuxFunc into an MiddleDemux node.
 func AsMiddleDemux[IN any](fun MiddleDemuxFunc[IN], opts ...Option) *MiddleDemux[IN] {
 	var in IN
 	options := getOptions(opts...)
@@ -192,7 +204,7 @@ func (m *MiddleDemux[IN]) start() {
 	// TODO: panic if no outputs?
 	releasers := make([]reflect.Value, 0, len(m.demux.outNodes))
 	demux := Demux{outChans: map[any]any{}}
-	// TODO: code repeated from startnode
+	// TODO: remove duplication from StartDemux.start function
 	for k, on := range m.demux.outNodes {
 		method := on.MethodByName("StartReceivers")
 		startResult := method.Call(nil)
