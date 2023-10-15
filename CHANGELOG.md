@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# Next
+
+* Low-level API: start and middle node output demuxers
+
 # v0.8.0
 
 * High-Level: You don't need the `nodeId` annotation. If undefined, it takes the struct name
