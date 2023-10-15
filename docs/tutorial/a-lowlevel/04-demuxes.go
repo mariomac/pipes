@@ -6,7 +6,7 @@ import (
 	"github.com/mariomac/pipes/pkg/node"
 )
 
-func Generator(outs node.DemuxedChans) {
+func Generator(outs node.Demux) {
 	nonPositive := node.DemuxGet[int](outs, "nonPositive")
 	positive := node.DemuxGet[int](outs, "positive")
 	for i := -3; i <= 17; i++ {
@@ -18,7 +18,7 @@ func Generator(outs node.DemuxedChans) {
 	}
 }
 
-func PrimeFilter(in <-chan int, outs node.DemuxedChans) {
+func PrimeFilter(in <-chan int, outs node.Demux) {
 	primes := node.DemuxGet[int](outs, "primes")
 	notPrimes := node.DemuxGet[int](outs, "notPrimes")
 

@@ -16,7 +16,7 @@ const testTimeout = 5 * time.Second
 func TestAsStartDemux(t *testing.T) {
 	type out2k struct{}
 	type out1k struct{}
-	start := AsStartDemux(func(d DemuxedChans) {
+	start := AsStartDemux(func(d Demux) {
 		out1 := DemuxGet[int](d, out1k{})
 		out2 := DemuxGet[int](d, out2k{})
 		out1 <- 1
@@ -70,7 +70,7 @@ func TestAsMiddleDemux(t *testing.T) {
 			out <- i
 		}
 	})
-	classifier := AsMiddleDemux(func(in <-chan int, out DemuxedChans) {
+	classifier := AsMiddleDemux(func(in <-chan int, out Demux) {
 		fmt.Println("class sttart")
 		evens := DemuxGet[int32](out, "evens")
 		odds := DemuxGet[int](out, "odds")
