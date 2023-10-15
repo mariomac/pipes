@@ -133,23 +133,7 @@ func (i *StartDemux) demuxBuilder() *demuxBuilder {
 // Start starts the function wrapped in the StartDemux node. This method should be invoked
 // for all the start nodes of the same graph, so the graph can properly start and finish.
 func (i *StartDemux) Start() {
-	// TODO: panic if no outputs?
-	releasers := make([]reflect.Value, 0, len(i.demux.outNodes))
-	demux := Demux{outChans: map[any]any{}}
-	for k, on := range i.demux.outNodes {
-		// forker, err := on.StartReceivers()
-		method := on.MethodByName("StartReceivers")
-		startResult := method.Call(nil)
-		// if err != nil {
-		if !startResult[1].IsNil() {
-			panic(fmt.Sprintf("Start node %s: %s", k, startResult[1].Interface()))
-		}
-		// outChans[k] = forker.AcquireSender()
-		forker := startResult[0]
-		demux.outChans[k] = forker.MethodByName("AcquireSender").Call(nil)[0].Interface()
-		// releasers = append(releasers, forker.ReleaseSender())
-		releasers = append(releasers, forker.MethodByName("ReleaseSender"))
-	}
+	releasers, demux := startAndCollectReleaseFuncs(i)
 
 	// Invocation to all the start node functions, with
 	// deferred invocation to the ReleaseSender methods that were previously collected
@@ -164,6 +148,31 @@ func (i *StartDemux) Start() {
 			fun(demux)
 		}()
 	}
+}
+
+// for any demuxed node, starts the receivers and collects the released
+// nodes. It also returns a demux with the connections to the receiver
+// nodes.
+func startAndCollectReleaseFuncs(d Demuxed) ([]reflect.Value, Demux) {
+	db := d.demuxBuilder()
+	// TODO: panic if no outputs?
+	releasers := make([]reflect.Value, 0, len(db.outNodes))
+	demux := Demux{outChans: map[any]any{}}
+	for k, on := range db.outNodes {
+		// forker, err := on.StartReceivers()
+		method := on.MethodByName("StartReceivers")
+		startResult := method.Call(nil)
+		// if err != nil {
+		if !startResult[1].IsNil() {
+			panic(fmt.Sprintf("%T node %s: %s", d, k, startResult[1].Interface()))
+		}
+		// outChans[k] = forker.AcquireSender()
+		forker := startResult[0]
+		demux.outChans[k] = forker.MethodByName("AcquireSender").Call(nil)[0].Interface()
+		// releasers = append(releasers, forker.ReleaseSender())
+		releasers = append(releasers, forker.MethodByName("ReleaseSender"))
+	}
+	return releasers, demux
 }
 
 // MiddleDemux is any intermediate node that receives data from another node, processes/filters it,
@@ -201,20 +210,7 @@ func (m *MiddleDemux[IN]) InType() reflect.Type {
 }
 
 func (m *MiddleDemux[IN]) start() {
-	// TODO: panic if no outputs?
-	releasers := make([]reflect.Value, 0, len(m.demux.outNodes))
-	demux := Demux{outChans: map[any]any{}}
-	// TODO: remove duplication from StartDemux.start function
-	for k, on := range m.demux.outNodes {
-		method := on.MethodByName("StartReceivers")
-		startResult := method.Call(nil)
-		if !startResult[1].IsNil() {
-			panic(fmt.Sprintf("Middle node %s: %s", k, startResult[1].Interface()))
-		}
-		forker := startResult[0]
-		demux.outChans[k] = forker.MethodByName("AcquireSender").Call(nil)[0].Interface()
-		releasers = append(releasers, forker.MethodByName("ReleaseSender"))
-	}
+	releasers, demux := startAndCollectReleaseFuncs(m)
 
 	go func() {
 		defer func() {
