@@ -34,18 +34,25 @@ type inOutTyper interface {
 	outTyper
 }
 
+type reflectedNode struct {
+	// reflect value of AsStart, AsMiddle, etc...
+	instancer reflect.Value
+	// reflect value of StartFunc, MiddleFunc, etc...
+	function reflect.Value
+}
+
 // Builder helps to build a graph and to connect their nodes. It takes care of instantiating all
 // its stages given a name and a type, as well as connect them. If two connected stages have
 // incompatible types, it will insert a codec in between to translate between the stage types
 type Builder struct {
-	startProviders    map[reflect.Type][2]reflect.Value //0: reflect.ValueOf(node.AsStart[I, O]), 1: reflect.ValueOf(startfunc)
-	middleProviders   map[reflect.Type][2]reflect.Value
-	terminalProviders map[reflect.Type][2]reflect.Value
+	startProviders    map[reflect.Type]reflectedNode //0: reflect.ValueOf(node.AsStart[I, O]), 1: reflect.ValueOf(startfunc)
+	middleProviders   map[reflect.Type]reflectedNode
+	terminalProviders map[reflect.Type]reflectedNode
 	// keys: instance IDs
 	ingests    map[string]outTyper
 	transforms map[string]inOutTyper
 	exports    map[string]inTyper
-	codecs     map[codecKey][2]reflect.Value // 0: reflect.ValueOf(node.AsMiddle[I,O]), 1: reflect.ValueOf(middleFunc[I, O])
+	codecs     map[codecKey]reflectedNode // 0: reflect.ValueOf(node.AsMiddle[I,O]), 1: reflect.ValueOf(middleFunc[I, O])
 	options    []reflect.Value
 	// used to check unconnected nodes
 	inNodeNames  map[string]struct{}
@@ -64,13 +71,13 @@ func NewBuilder(options ...node.Option) *Builder {
 		optVals = append(optVals, reflect.ValueOf(opt))
 	}
 	return &Builder{
-		codecs:            map[codecKey][2]reflect.Value{},
-		startProviders:    map[reflect.Type][2]reflect.Value{}, // stage.StartProvider
-		middleProviders:   map[reflect.Type][2]reflect.Value{}, // stage.MiddleProvider{},
-		terminalProviders: map[reflect.Type][2]reflect.Value{}, // stage.TerminalProvider{},
-		ingests:           map[string]outTyper{},               // *node.StartCtx
-		transforms:        map[string]inOutTyper{},             // *node.Middle
-		exports:           map[string]inTyper{},                // *node.Terminal
+		codecs:            map[codecKey]reflectedNode{},
+		startProviders:    map[reflect.Type]reflectedNode{}, // stage.StartProvider
+		middleProviders:   map[reflect.Type]reflectedNode{}, // stage.MiddleProvider{},
+		terminalProviders: map[reflect.Type]reflectedNode{}, // stage.TerminalProvider{},
+		ingests:           map[string]outTyper{},            // *node.StartCtx
+		transforms:        map[string]inOutTyper{},          // *node.Middle
+		exports:           map[string]inTyper{},             // *node.Terminal
 		options:           optVals,
 		inNodeNames:       map[string]struct{}{},
 		outNodeNames:      map[string]struct{}{},
@@ -88,7 +95,7 @@ func RegisterCodec[I, O any](nb *Builder, middleFunc node.MiddleFunc[I, O]) {
 	var in I
 	var out O
 	// temporary middle node used only to check input/output types
-	nb.codecs[codecKey{In: reflect.TypeOf(in), Out: reflect.TypeOf(out)}] = [2]reflect.Value{
+	nb.codecs[codecKey{In: reflect.TypeOf(in), Out: reflect.TypeOf(out)}] = reflectedNode{
 		reflect.ValueOf(node.AsMiddle[I, O]),
 		reflect.ValueOf(middleFunc),
 	}
@@ -100,7 +107,7 @@ func RegisterCodec[I, O any](nb *Builder, middleFunc node.MiddleFunc[I, O]) {
 // The passed configuration type must either implement the stage.Instancer interface or the
 // configuration struct containing it must define a `nodeId` tag with an identifier for that stage.
 func RegisterStart[CFG, O any](nb *Builder, b stage.StartProvider[CFG, O]) {
-	nb.startProviders[typeOf[CFG]()] = [2]reflect.Value{
+	nb.startProviders[typeOf[CFG]()] = reflectedNode{
 		reflect.ValueOf(node.AsStart[O]),
 		reflect.ValueOf(b),
 	}
@@ -109,7 +116,7 @@ func RegisterStart[CFG, O any](nb *Builder, b stage.StartProvider[CFG, O]) {
 // RegisterMultiStart is similar to RegisterStart, but registers a stage.StartMultiProvider,
 // which allows associating multiple functions with a single node
 func RegisterMultiStart[CFG, O any](nb *Builder, b stage.StartMultiProvider[CFG, O]) {
-	nb.startProviders[typeOf[CFG]()] = [2]reflect.Value{
+	nb.startProviders[typeOf[CFG]()] = reflectedNode{
 		reflect.ValueOf(node.AsStart[O]),
 		reflect.ValueOf(b),
 	}
@@ -121,7 +128,7 @@ func RegisterMultiStart[CFG, O any](nb *Builder, b stage.StartMultiProvider[CFG,
 // The passed configuration type must either implement the stage.Instancer interface or the
 // configuration struct containing it must define a `nodeId` tag with an identifier for that stage.
 func RegisterMiddle[CFG, I, O any](nb *Builder, b stage.MiddleProvider[CFG, I, O]) {
-	nb.middleProviders[typeOf[CFG]()] = [2]reflect.Value{
+	nb.middleProviders[typeOf[CFG]()] = reflectedNode{
 		reflect.ValueOf(node.AsMiddle[I, O]),
 		reflect.ValueOf(b),
 	}
@@ -133,7 +140,7 @@ func RegisterMiddle[CFG, I, O any](nb *Builder, b stage.MiddleProvider[CFG, I, O
 // The passed configuration type must either implement the stage.Instancer interface or the
 // configuration struct containing it must define a `nodeId` tag with an identifier for that stage.
 func RegisterTerminal[CFG, I any](nb *Builder, b stage.TerminalProvider[CFG, I]) {
-	nb.terminalProviders[typeOf[CFG]()] = [2]reflect.Value{
+	nb.terminalProviders[typeOf[CFG]()] = reflectedNode{
 		reflect.ValueOf(node.AsTerminal[I]),
 		reflect.ValueOf(b),
 	}
@@ -187,7 +194,7 @@ func (nb *Builder) instantiate(instanceID string, arg reflect.Value) error {
 	}
 	if ib, ok := nb.startProviders[arg.Type()]; ok {
 		// providedFunc, err = StartProvider(arg)
-		callResult := ib[1].Call(rargs)
+		callResult := ib.function.Call(rargs)
 		providedFunc := callResult[0]
 		errVal := callResult[1]
 
@@ -199,10 +206,10 @@ func (nb *Builder) instantiate(instanceID string, arg reflect.Value) error {
 		var startNode []reflect.Value
 		if providedFunc.Kind() == reflect.Slice {
 			// startNode = AsStartCtx(providedFuncs...)
-			startNode = ib[0].CallSlice([]reflect.Value{providedFunc})
+			startNode = ib.instancer.CallSlice([]reflect.Value{providedFunc})
 		} else {
 			// startNode = AsStartCtx(providedFunc)
-			startNode = ib[0].Call([]reflect.Value{providedFunc})
+			startNode = ib.instancer.Call([]reflect.Value{providedFunc})
 		}
 		nb.ingests[instanceID] = startNode[0].Interface().(outTyper)
 		nb.outNodeNames[instanceID] = struct{}{}
@@ -210,7 +217,7 @@ func (nb *Builder) instantiate(instanceID string, arg reflect.Value) error {
 	}
 	if tb, ok := nb.middleProviders[arg.Type()]; ok {
 		// providedFunc, err = MiddleProvider(arg)
-		callResult := tb[1].Call(rargs)
+		callResult := tb.function.Call(rargs)
 		providedFunc := callResult[0]
 		errVal := callResult[1]
 
@@ -219,7 +226,7 @@ func (nb *Builder) instantiate(instanceID string, arg reflect.Value) error {
 		}
 
 		// middleNode = AsMiddle(providedFunc, nb.options...)
-		middleNode := tb[0].Call(append([]reflect.Value{providedFunc}, nb.options...))
+		middleNode := tb.instancer.Call(append([]reflect.Value{providedFunc}, nb.options...))
 		nb.transforms[instanceID] = middleNode[0].Interface().(inOutTyper)
 		nb.inNodeNames[instanceID] = struct{}{}
 		nb.outNodeNames[instanceID] = struct{}{}
@@ -228,7 +235,7 @@ func (nb *Builder) instantiate(instanceID string, arg reflect.Value) error {
 
 	if eb, ok := nb.terminalProviders[arg.Type()]; ok {
 		// providedFunc, err = TerminalProvider(arg)
-		callResult := eb[1].Call(rargs)
+		callResult := eb.function.Call(rargs)
 		providedFunc := callResult[0]
 		errVal := callResult[1]
 
@@ -237,7 +244,7 @@ func (nb *Builder) instantiate(instanceID string, arg reflect.Value) error {
 		}
 
 		// termNode = AsTerminal(providedFunc, nb.options...)
-		termNode := eb[0].Call(append([]reflect.Value{providedFunc}, nb.options...))
+		termNode := eb.instancer.Call(append([]reflect.Value{providedFunc}, nb.options...))
 		nb.exports[instanceID] = termNode[0].Interface().(inTyper)
 		nb.inNodeNames[instanceID] = struct{}{}
 		return nil
@@ -320,7 +327,7 @@ func (b *Builder) newCodec(inType, outType reflect.Type) (reflect.Value, bool) {
 		return reflect.ValueOf(nil), false
 	}
 
-	result := codec[0].Call(codec[1:])
+	result := codec.instancer.Call([]reflect.Value{codec.function})
 	return result[0], true
 }
 
