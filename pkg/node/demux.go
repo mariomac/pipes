@@ -9,6 +9,7 @@ import (
 
 // Demuxed node whose output is not a channel but a Demux.
 // Can be both StartDemux or MiddleDemux nodes
+// Experimental API. Some names could change in the following versions.
 type Demuxed interface {
 	demuxBuilder() *demuxBuilder
 }
@@ -20,6 +21,7 @@ type Demuxed interface {
 // associated to a node by means of the DemuxAdd function.
 // At runtime, you can access the multiple named output
 // channels by means of the DemuxGet function.
+// Experimental API. Some names could change in the following versions.
 type Demux struct {
 	// Key: the key/name of the output
 	outChans map[any]any
@@ -28,6 +30,7 @@ type Demux struct {
 // StartDemuxFunc is a function that receives a Demux as unique argument,
 // and sends, during an indefinite amount of time, values to the channels
 // contained in the Demux (previously accessed by the DemuxGet function).
+// Experimental API. Some names could change in the following versions.
 type StartDemuxFunc func(d Demux)
 
 // MiddleDemuxFunc is a function that receives a readable channel as first argument,
@@ -35,6 +38,7 @@ type StartDemuxFunc func(d Demux)
 // It must process the inputs from the input channel until it's closed
 // and usually forward the processed values to any of the Demux output channels
 // (previously accessed by the DemuxGet function).
+// Experimental API. Some names could change in the following versions.
 type MiddleDemuxFunc[IN any] func(in <-chan IN, out Demux)
 
 // demuxBuilder is an accessory object to define, during the construction time,
@@ -77,6 +81,7 @@ func (do *demuxOut[OUT]) SendTo(outs ...Receiver[OUT]) {
 // identified by a key that can be any value of any type, and
 // can be later accessed from inside the node's StartDemuxFunc or
 // MiddleDemuxFunc with the DemuxGet function.
+// Experimental API. Some names could change in the following versions.
 func DemuxAdd[OUT any](d Demuxed, key any) Sender[OUT] {
 	demux := d.demuxBuilder()
 	var out OUT
@@ -96,6 +101,7 @@ func DemuxAdd[OUT any](d Demuxed, key any) Sender[OUT] {
 // MiddleDemuxFunc.
 // The function will panic if no output channel has been previously
 // defined at build time for that given key (using the DemuxAdd) function.
+// Experimental API. Some names could change in the following versions.
 func DemuxGet[OUT any](d Demux, key any) chan<- OUT {
 	if on, ok := d.outChans[key]; !ok {
 		panic(fmt.Sprintf("Demux has not registered any sender for key %#v", key))
@@ -111,6 +117,7 @@ func DemuxGet[OUT any](d Demux, key any) chan<- OUT {
 // external source like a Web Service.
 // A graph must have at least one Start or StartDemux node.
 // A StartDemux node must have at least one output node.
+// Experimental API. Some names could change in the following versions.
 type StartDemux struct {
 	demux demuxBuilder
 	funs  []StartDemuxFunc
@@ -155,6 +162,9 @@ func (i *StartDemux) Start() {
 // nodes.
 func startAndCollectReleaseFuncs(d Demuxed) ([]reflect.Value, Demux) {
 	db := d.demuxBuilder()
+	if len(db.outNodes) == 0 {
+		panic(fmt.Sprintf("Demux in the node of type %T should define at least one output", d))
+	}
 	// TODO: panic if no outputs?
 	releasers := make([]reflect.Value, 0, len(db.outNodes))
 	demux := Demux{outChans: map[any]any{}}
@@ -178,15 +188,18 @@ func startAndCollectReleaseFuncs(d Demuxed) ([]reflect.Value, Demux) {
 // MiddleDemux is any intermediate node that receives data from another node, processes/filters it,
 // and forwards the data any of the output channels in the provided Demux.
 // An MiddleDemux node must have at least one output node.
+// Experimental API. Some names could change in the following versions.
 type MiddleDemux[IN any] struct {
-	fun     MiddleDemuxFunc[IN]
-	demux   demuxBuilder
-	inputs  connect.Joiner[IN]
+	fun    MiddleDemuxFunc[IN]
+	demux  demuxBuilder
+	inputs connect.Joiner[IN]
+	// nolint:unused
 	started bool
 	inType  reflect.Type
 }
 
 // AsMiddleDemux wraps an MiddleDemuxFunc into an MiddleDemux node.
+// Experimental API. Some names could change in the following versions.
 func AsMiddleDemux[IN any](fun MiddleDemuxFunc[IN], opts ...Option) *MiddleDemux[IN] {
 	var in IN
 	options := getOptions(opts...)
@@ -197,10 +210,12 @@ func AsMiddleDemux[IN any](fun MiddleDemuxFunc[IN], opts ...Option) *MiddleDemux
 	}
 }
 
+// nolint:unused
 func (m *MiddleDemux[IN]) joiner() *connect.Joiner[IN] {
 	return &m.inputs
 }
 
+// nolint:unused
 func (m *MiddleDemux[IN]) isStarted() bool {
 	return m.started
 }
@@ -209,6 +224,7 @@ func (m *MiddleDemux[IN]) InType() reflect.Type {
 	return m.inType
 }
 
+// nolint:unused
 func (m *MiddleDemux[IN]) start() {
 	releasers, demux := startAndCollectReleaseFuncs(m)
 
