@@ -154,7 +154,7 @@ func TestDemuxed_ForwardTo(t *testing.T) {
 	graphDefinition := struct {
 		Counter `sendTo:"nonPos:Inverter,positive:Adder"`
 		// won't submit anything to sorter but just forward to collector without inverting
-		Inverter `sendTo:"collect:Collector,sort:Sorter" forwardTo:"Collector"`
+		Inverter `forwardTo:"collect:Collector,sort:Sorter"`
 		Adder    `sendTo:"Sorter"`
 		*Collector
 		*Sorter
@@ -177,9 +177,10 @@ func TestDemuxed_ForwardTo(t *testing.T) {
 	}()
 	helpers.ReadChannel(t, endRun, timeout)
 
+	// the collector has received the negative numbers directly from the start node
 	assert.Equal(t, []int{-9, -6, -3, 0}, graphDefinition.Collector.dst)
-	// sorter hasn't received the negative inverter numbers
-	assert.Equal(t, []int{4, 7, 10}, graphDefinition.Sorter.dst)
+	// sorter has received the negative numbers directly from the start node
+	assert.Equal(t, []int{-9, -6, -3, 0, 4, 7, 10}, graphDefinition.Sorter.dst)
 }
 
 // TEST: forwarded nodes

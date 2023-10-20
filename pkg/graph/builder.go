@@ -103,6 +103,7 @@ type Builder struct {
 	// used to avoid failing a "sendTo" annotation pointing to a disabled node
 	disabledNodes map[string]struct{}
 	// used to forward data from disabled Nodes
+	// key: forwarder node IDs, value: destinations of that forwarder
 	forwarderNodes map[string][]dstConnector
 }
 
@@ -355,7 +356,10 @@ func (b *Builder) connect(src string, dst dstConnector) error {
 		// connect the source with its own destinations
 		if fwds, ok := b.forwarderNodes[dst.dstNode]; ok {
 			for _, fwdDst := range fwds {
-				if err := b.connect(src, fwdDst); err != nil {
+				// if the source is demuxed, we need to forward the source demux info
+				// instead of the destination demux
+				dstWithSrcDemux := dstConnector{demuxChan: dst.demuxChan, dstNode: fwdDst.dstNode}
+				if err := b.connect(src, dstWithSrcDemux); err != nil {
 					return err
 				}
 			}
