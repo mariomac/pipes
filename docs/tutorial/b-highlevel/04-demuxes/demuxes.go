@@ -8,8 +8,8 @@ import (
 )
 
 type Graph struct {
-	Generator   `sendTo:"nonPositive:DiscardedPrinter,positive:PrimeFilter"`
-	PrimeFilter `sendTo:"primes:PrimePrinter,notPrimes:DiscardedPrinter"`
+	Generator   `sendTo:"nonPositive:DiscardPrinter,positive:PrimeFilter"`
+	PrimeFilter `sendTo:"primes:PrimePrinter,notPrimes:DiscardPrinter"`
 	PrimePrinter
 	DiscardPrinter
 }

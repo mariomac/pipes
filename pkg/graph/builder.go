@@ -21,6 +21,10 @@ type codecKey struct {
 	Out reflect.Type
 }
 
+type reflectedStartNode struct {
+	out      outTyper
+	outDemux reflect.Value
+}
 type outTyper interface {
 	OutType() reflect.Type
 }
@@ -34,6 +38,22 @@ type inOutTyper interface {
 	outTyper
 }
 
+type reflectedInOutTyper struct {
+	node          inOutTyper
+	inputDemuxAdd reflect.Value
+}
+
+type reflectedInTyper struct {
+	node          inTyper
+	inputDemuxAdd reflect.Value
+}
+
+type reflectedDstNode struct {
+	node          inTyper
+	inputDemuxAdd reflect.Value
+	demuxed       node.Demuxed // nillable
+}
+
 type inDemuxedTyper interface {
 	inTyper
 	node.Demuxed
@@ -45,24 +65,28 @@ type reflectedNode struct {
 	instancer reflect.Value
 	// reflect value of StartFunc, MiddleFunc, etc...
 	provider reflect.Value
+	// reflection of the DemuxAdd[O](demux, node) function
+	// This is set in the destination node instead of the source node
+	// as we have the output type information only
+	inputDemuxAdd reflect.Value
 }
 
 // Builder helps to build a graph and to connect their nodes. It takes care of instantiating all
 // its stages given a name and a type, as well as connect them. If two connected stages have
 // incompatible types, it will insert a codec in between to translate between the stage types
 type Builder struct {
-	startProviders    map[reflect.Type]reflectedNode //0: reflect.ValueOf(node.AsStart[I, O]), 1: reflect.ValueOf(startfunc)
+	startProviders    map[reflect.Type]reflectedNode
 	middleProviders   map[reflect.Type]reflectedNode
 	terminalProviders map[reflect.Type]reflectedNode
-	codecs            map[codecKey]reflectedNode // 0: reflect.ValueOf(node.AsMiddle[I,O]), 1: reflect.ValueOf(middleFunc[I, O])
+	codecs            map[codecKey]reflectedNode
 	// non-demuxed nodes
 	// keys: instance IDs
 	startNodes  map[string]outTyper
-	middleNodes map[string]inOutTyper
-	termNodes   map[string]inTyper
+	middleNodes map[string]reflectedInOutTyper
+	termNodes   map[string]reflectedInTyper
 	// demuxed nodes that do not directly implement OutTyper
 	startDemuxedNodes  map[string]node.Demuxed
-	middleDemuxedNodes map[string]inDemuxedTyper
+	middleDemuxedNodes map[string]reflectedDstNode
 
 	options []reflect.Value
 	// used to check unconnected nodes
@@ -87,10 +111,10 @@ func NewBuilder(options ...node.Option) *Builder {
 		middleProviders:    map[reflect.Type]reflectedNode{}, // stage.MiddleProvider{},
 		terminalProviders:  map[reflect.Type]reflectedNode{}, // stage.TerminalProvider{},
 		startNodes:         map[string]outTyper{},            // *node.Start
-		middleNodes:        map[string]inOutTyper{},          // *node.Middle
-		termNodes:          map[string]inTyper{},             // *node.Terminal
+		middleNodes:        map[string]reflectedInOutTyper{}, // *node.Middle
+		termNodes:          map[string]reflectedInTyper{},    // *node.Terminal
 		startDemuxedNodes:  map[string]node.Demuxed{},
-		middleDemuxedNodes: map[string]inDemuxedTyper{},
+		middleDemuxedNodes: map[string]reflectedDstNode{},
 		options:            optVals,
 		inNodeNames:        map[string]struct{}{},
 		outNodeNames:       map[string]struct{}{},
@@ -144,6 +168,9 @@ func RegisterMiddle[CFG, I, O any](nb *Builder, b stage.MiddleProvider[CFG, I, O
 	nb.middleProviders[typeOf[CFG]()] = reflectedNode{
 		instancer: reflect.ValueOf(node.AsMiddle[I, O]),
 		provider:  reflect.ValueOf(b),
+		// even if we don't know if the node will receive information from a Demux
+		// we need to store the function reference just in case
+		inputDemuxAdd: reflect.ValueOf(node.DemuxAdd[I]),
 	}
 }
 
@@ -156,6 +183,9 @@ func RegisterTerminal[CFG, I any](nb *Builder, b stage.TerminalProvider[CFG, I])
 	nb.terminalProviders[typeOf[CFG]()] = reflectedNode{
 		instancer: reflect.ValueOf(node.AsTerminal[I]),
 		provider:  reflect.ValueOf(b),
+		// even if we don't know if the node will receive information from a Demux
+		// we need to store the function reference just in case
+		inputDemuxAdd: reflect.ValueOf(node.DemuxAdd[I]),
 	}
 }
 
@@ -176,7 +206,7 @@ func (b *Builder) Build(cfg any) (Graph, error) {
 		g.start = append(g.start, i.(startNode))
 	}
 	for _, e := range b.termNodes {
-		g.terms = append(g.terms, e.(terminalNode))
+		g.terms = append(g.terms, e.node.(terminalNode))
 	}
 
 	// validate that there aren't nodes without connection
@@ -262,9 +292,17 @@ func (nb *Builder) instantiateMiddle(instanceID string, tb reflectedNode, rargs 
 	// middleNode = AsMiddle(providedFunc, nb.options...)
 	middleNode := tb.instancer.Call(append([]reflect.Value{providedFunc}, nb.options...))
 	if tb.demuxed {
-		nb.middleDemuxedNodes[instanceID] = middleNode[0].Interface().(inDemuxedTyper)
+		mn := middleNode[0].Interface().(inDemuxedTyper)
+		nb.middleDemuxedNodes[instanceID] = reflectedDstNode{
+			node:          mn,
+			inputDemuxAdd: tb.inputDemuxAdd,
+			demuxed:       mn,
+		}
 	} else {
-		nb.middleNodes[instanceID] = middleNode[0].Interface().(inOutTyper)
+		nb.middleNodes[instanceID] = reflectedInOutTyper{
+			node:          middleNode[0].Interface().(inOutTyper),
+			inputDemuxAdd: tb.inputDemuxAdd,
+		}
 	}
 	nb.inNodeNames[instanceID] = struct{}{}
 	nb.outNodeNames[instanceID] = struct{}{}
@@ -283,7 +321,10 @@ func (nb *Builder) instantiateTerminal(instanceID string, eb reflectedNode, rarg
 
 	// termNode = AsTerminal(providedFunc, nb.options...)
 	termNode := eb.instancer.Call(append([]reflect.Value{providedFunc}, nb.options...))
-	nb.termNodes[instanceID] = termNode[0].Interface().(inTyper)
+	nb.termNodes[instanceID] = reflectedInTyper{
+		node:          termNode[0].Interface().(inTyper),
+		inputDemuxAdd: eb.inputDemuxAdd,
+	}
 	nb.inNodeNames[instanceID] = struct{}{}
 	return nil
 }
@@ -315,45 +356,86 @@ func (b *Builder) connect(src string, dst dstConnector) error {
 	}
 
 	// find source and destination stages
-	var srcNode outTyper
-	var ok bool
-	srcNode, ok = b.startNodes[src]
+	var srcDemuxedNode node.Demuxed
+	srcNode, ok := b.getSrcNode(src)
 	if !ok {
-		srcNode, ok = b.middleNodes[src]
+		srcDemuxedNode, ok = b.getSrcDemuxedNode(src)
 		if !ok {
 			return fmt.Errorf("invalid source node: %q", src)
 		}
 	}
-	var dstNode inTyper
-	dstNode, ok = b.middleNodes[dst.dstNode]
+	dstNode, ok := b.getDstNode(dst.dstNode)
 	if !ok {
-		dstNode, ok = b.termNodes[dst.dstNode]
-		if !ok {
-			return fmt.Errorf("invalid destination node: %q", dst.dstNode)
-		}
+		return fmt.Errorf("invalid destination node: %q", dst.dstNode)
 	}
+	if srcNode != nil {
+		return b.directConnection(src, dst, srcNode, dstNode)
+	} else {
+		return b.demuxedConnection(src, dst, srcDemuxedNode, dstNode)
+	}
+}
+
+func (b *Builder) directConnection(srcName string, dstName dstConnector, srcNode outTyper, dstNode reflectedDstNode) error {
 	srcSendsToMethod := reflect.ValueOf(srcNode).MethodByName("SendTo")
 	if srcSendsToMethod.IsZero() {
-		panic(fmt.Sprintf("BUG: for stage %q, source of type %T does not have SendTo method", src, srcNode))
+		panic(fmt.Sprintf("BUG: for stage %q, source of type %T does not have SendTo method", srcName, srcNode))
 	}
 	// check if they have compatible types
-	if srcNode.OutType() == dstNode.InType() {
+	if srcNode.OutType() == dstNode.node.InType() {
 		srcSendsToMethod.Call([]reflect.Value{reflect.ValueOf(dstNode)})
 		return nil
 	}
 	// otherwise, we will add in intermediate codec layer
-	codec, ok := b.newCodec(srcNode.OutType(), dstNode.InType())
+	codec, ok := b.newCodec(srcNode.OutType(), dstNode.node.InType())
 	if !ok {
 		return fmt.Errorf("can't connect %q and %q stages because there isn't registered"+
-			" any %s -> %s codec", src, dst, srcNode.OutType(), dstNode.InType())
+			" any %s -> %s codec", srcName, dstName, srcNode.OutType(), dstNode.node.InType())
 	}
 	srcSendsToMethod.Call([]reflect.Value{codec})
 	codecSendsToMethod := codec.MethodByName("SendTo")
 	if codecSendsToMethod.IsZero() {
-		panic(fmt.Sprintf("BUG: for stage %q, codec of type %T does not have SendTo method", src, srcNode))
+		panic(fmt.Sprintf("BUG: for stage %q, codec of type %T does not have SendTo method", srcName, srcNode))
 	}
 	codecSendsToMethod.Call([]reflect.Value{reflect.ValueOf(dstNode)})
 	return nil
+}
+
+func (b *Builder) demuxedConnection(src string, dstName dstConnector, srcNode node.Demuxed, dstNode reflectedDstNode) error {
+
+	// demux := DemuxAdd[outType](srcNode, "chanName")
+
+	reflectedDemux := dstNode.inputDemuxAdd.Call([]reflect.Value{reflect.ValueOf(srcNode), reflect.ValueOf(dstName.demuxChan)})
+
+	// demux.SendTo(dstNode)
+
+	reflectedDemux[0].MethodByName("SendTo").Call([]reflect.Value{reflect.ValueOf(dstNode.node)})
+
+	return nil
+
+	/*
+		srcSendsToMethod := reflect.ValueOf(srcNode).MethodByName("SendTo")
+		if srcSendsToMethod.IsZero() {
+			panic(fmt.Sprintf("BUG: for stage %q, source of type %T does not have SendTo method", src, srcNode))
+		}
+		// check if they have compatible types
+		if srcNode.OutType() == dstNode.InType() {
+			srcSendsToMethod.Call([]reflect.Value{reflect.ValueOf(dstNode)})
+			return nil
+		}
+		// otherwise, we will add in intermediate codec layer
+		codec, ok := b.newCodec(srcNode.OutType(), dstNode.InType())
+		if !ok {
+			return fmt.Errorf("can't connect %q and %q stages because there isn't registered"+
+				" any %s -> %s codec", src, dst, srcNode.OutType(), dstNode.InType())
+		}
+		srcSendsToMethod.Call([]reflect.Value{codec})
+		codecSendsToMethod := codec.MethodByName("SendTo")
+		if codecSendsToMethod.IsZero() {
+			panic(fmt.Sprintf("BUG: for stage %q, codec of type %T does not have SendTo method", src, srcNode))
+		}
+		codecSendsToMethod.Call([]reflect.Value{reflect.ValueOf(dstNode)})
+		return nil
+	*/
 }
 
 // returns a node.Midle[?, ?] as a value
@@ -370,4 +452,46 @@ func (b *Builder) newCodec(inType, outType reflect.Type) (reflect.Value, bool) {
 func typeOf[T any]() reflect.Type {
 	var t T
 	return reflect.TypeOf(t)
+}
+
+func (b *Builder) getSrcNode(id string) (outTyper, bool) {
+	if srcNode, ok := b.startNodes[id]; ok {
+		return srcNode, true
+	}
+	if srcNode, ok := b.middleNodes[id]; ok {
+		return srcNode.node, true
+	}
+	return nil, false
+}
+
+func (b *Builder) getSrcDemuxedNode(id string) (node.Demuxed, bool) {
+	if srcNode, ok := b.startDemuxedNodes[id]; ok {
+		return srcNode, true
+	}
+	if srcNode, ok := b.middleDemuxedNodes[id]; ok {
+		return srcNode.demuxed, true
+	}
+	return nil, false
+}
+
+func (b *Builder) getDstNode(id string) (reflectedDstNode, bool) {
+	if dstNode, ok := b.middleNodes[id]; ok {
+		return reflectedDstNode{
+			node:          dstNode.node,
+			inputDemuxAdd: dstNode.inputDemuxAdd,
+		}, true
+	}
+	if dstNode, ok := b.middleDemuxedNodes[id]; ok {
+		return reflectedDstNode{
+			node:          dstNode.node,
+			inputDemuxAdd: dstNode.inputDemuxAdd,
+		}, true
+	}
+	if dstNode, ok := b.termNodes[id]; ok {
+		return reflectedDstNode{
+			node:          dstNode.node,
+			inputDemuxAdd: dstNode.inputDemuxAdd,
+		}, true
+	}
+	return reflectedDstNode{}, false
 }

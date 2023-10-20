@@ -30,5 +30,8 @@ func RegisterMiddleDemux[CFG, I any](nb *Builder, b stage.MiddleDemuxProvider[CF
 		demuxed:   true,
 		instancer: reflect.ValueOf(node.AsMiddleDemux[I]),
 		provider:  reflect.ValueOf(b),
+		// even if we don't know if the node will receive information from a Demux
+		// we need to store the function reference just in case
+		inputDemuxAdd: reflect.ValueOf(node.DemuxAdd[I]),
 	}
 }
