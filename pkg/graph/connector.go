@@ -1,6 +1,8 @@
 package graph
 
-import "strings"
+import (
+	"strings"
+)
 
 type dstConnector struct {
 	demuxChan string // if empty, no demuxed channel but direct submission to the node

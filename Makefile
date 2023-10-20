@@ -26,21 +26,21 @@ endef
 
 define check_format
 	$(shell $(foreach FILE, $(shell find . -name "*.go" -not -path "./vendor/*"), \
-		$(GOIMPORTS_REVISER) -local github.com/grafana -list-diff -output stdout -file-path $(FILE);))
+		$(GOIMPORTS_REVISER) -list-diff -output stdout $(FILE);))
 endef
 
 .PHONY: prereqs
 prereqs:
 	@echo "### Check if prerequisites are met, and installing missing dependencies"
 	mkdir -p $(TEST_OUTPUT)
-	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.52.2)
-	$(call go-install-tool,$(GOIMPORTS_REVISER),github.com/incu6us/goimports-reviser/v2@v2.5.3)
+	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.54.2)
+	$(call go-install-tool,$(GOIMPORTS_REVISER),github.com/incu6us/goimports-reviser/v3@v3.5.6)
 
 .PHONY: fmt
 fmt: prereqs
 	@echo "### Formatting code and fixing imports"
 	@$(foreach FILE, $(shell find . -name "*.go" -not -path "./vendor/*"), \
-		$(GOIMPORTS_REVISER) -local github.com/grafana -file-path $(FILE);)
+		$(GOIMPORTS_REVISER) $(FILE);)
 
 .PHONY: checkfmt
 checkfmt:
