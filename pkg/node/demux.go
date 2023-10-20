@@ -31,7 +31,7 @@ type Demux struct {
 // and sends, during an indefinite amount of time, values to the channels
 // contained in the Demux (previously accessed by the DemuxGet function).
 // Experimental API. Some names could change in the following versions.
-type StartDemuxFunc func(d Demux)
+type StartDemuxFunc func(out Demux)
 
 // MiddleDemuxFunc is a function that receives a readable channel as first argument,
 // and a Demux as second argument.

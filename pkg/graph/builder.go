@@ -80,10 +80,13 @@ type reflectedNode struct {
 // its stages given a name and a type, as well as connect them. If two connected stages have
 // incompatible types, it will insert a codec in between to translate between the stage types
 type Builder struct {
+	// providers here are function that return StartFunc, MiddleFunc, TermFunc...
+	// they are invoked first, then its returned values will be stored in startNodes, middleNodes, etc... attributes
 	startProviders    map[reflect.Type]reflectedNode
 	middleProviders   map[reflect.Type]reflectedNode
 	terminalProviders map[reflect.Type]reflectedNode
-	codecs            map[codecKey]reflectedNode
+	// a provider just for codecs
+	codecs map[codecKey]reflectedNode
 	// non-demuxed nodes
 	// keys: instance IDs
 	startNodes  map[string]outTyper
@@ -387,7 +390,7 @@ func (b *Builder) directConnection(srcName string, dstName dstConnector, srcNode
 	}
 	// check if they have compatible types
 	if srcNode.OutType() == dstNode.node.InType() {
-		srcSendsToMethod.Call([]reflect.Value{reflect.ValueOf(dstNode)})
+		srcSendsToMethod.Call([]reflect.Value{reflect.ValueOf(dstNode.node)})
 		return nil
 	}
 	// otherwise, we will add in intermediate codec layer
@@ -401,7 +404,7 @@ func (b *Builder) directConnection(srcName string, dstName dstConnector, srcNode
 	if codecSendsToMethod.IsZero() {
 		panic(fmt.Sprintf("BUG: for stage %q, codec of type %T does not have SendTo method", srcName, srcNode))
 	}
-	codecSendsToMethod.Call([]reflect.Value{reflect.ValueOf(dstNode)})
+	codecSendsToMethod.Call([]reflect.Value{reflect.ValueOf(dstNode.node)})
 	return nil
 }
 
