@@ -1,4 +1,4 @@
-# Low-level API 03: starting and end of the process
+# Low-level API 03: start and end of a graph execution
 
 The previous chapters of this tutorial show graphs with a single `Start`
 node and a single `Terminal` node.
