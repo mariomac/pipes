@@ -7,10 +7,6 @@ type dstConnector struct {
 	dstNode   string
 }
 
-func (d *dstConnector) demuxed() bool {
-	return d.demuxChan != ""
-}
-
 func allConnectorsFrom(in string) []dstConnector {
 	var conns []dstConnector
 	for _, connection := range strings.Split(in, ",") {

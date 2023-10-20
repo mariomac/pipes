@@ -388,6 +388,10 @@ func (b *Builder) connect(src string, dst dstConnector) error {
 }
 
 func (b *Builder) directConnection(srcName string, dstName dstConnector, srcNode outTyper, dstNode reflectedDemuxedNode) error {
+	if dstName.demuxChan != "" {
+		return fmt.Errorf("node %q has no demuxed output. Its destination node name can't have the '%s:' prefix (%s:%s)",
+			srcName, dstName.demuxChan, dstName.demuxChan, dstName.dstNode)
+	}
 	srcSendsToMethod := reflect.ValueOf(srcNode).MethodByName("SendTo")
 	if srcSendsToMethod.IsZero() {
 		panic(fmt.Sprintf("BUG: for stage %q, source of type %T does not have SendTo method", srcName, srcNode))
@@ -400,6 +404,7 @@ func (b *Builder) directConnection(srcName string, dstName dstConnector, srcNode
 	// otherwise, we will add in intermediate codec layer
 	codec, ok := b.newCodec(srcNode.OutType(), dstNode.node.InType())
 	if !ok {
+		// TODO: this is not tested
 		return fmt.Errorf("can't connect %q and %q stages because there isn't registered"+
 			" any %s -> %s codec", srcName, dstName, srcNode.OutType(), dstNode.node.InType())
 	}
@@ -413,41 +418,27 @@ func (b *Builder) directConnection(srcName string, dstName dstConnector, srcNode
 }
 
 func (b *Builder) demuxedConnection(src string, dstName dstConnector, srcNode node.Demuxed, dstNode reflectedDemuxedNode) error {
+	if dstName.demuxChan == "" {
+		return fmt.Errorf("node %q has demuxed output. Its destination node name must have a named output prefix (for example out1:%s)",
+			src, dstName.dstNode)
+	}
 
 	// demux := DemuxAdd[outType](srcNode, "chanName")
-
 	reflectedDemux := dstNode.inputDemuxAdd.Call([]reflect.Value{reflect.ValueOf(srcNode), reflect.ValueOf(dstName.demuxChan)})
 
-	// demux.SendTo(dstNode)
+	// check if the output of the demux is compatible with the input of the connected node
+	demuxOutType := reflectedDemux[0].Interface().(outTyper).OutType()
+	if demuxOutType != dstNode.node.InType() {
+		// in principle, this should never happen as the demuxOutType is created from the dstNode type
+		return fmt.Errorf("can't connect %s and %s:%s stages because the output %s (type %s) does not match"+
+			" the input of the node %s (type %s)", src, dstName.demuxChan, dstName.dstNode, dstName.demuxChan,
+			demuxOutType.String(), dstName.dstNode, dstNode.node.InType().String())
+	}
 
+	// demux.SendTo(dstNode)
 	reflectedDemux[0].MethodByName("SendTo").Call([]reflect.Value{reflect.ValueOf(dstNode.node)})
 
 	return nil
-
-	/*
-		srcSendsToMethod := reflect.ValueOf(srcNode).MethodByName("SendTo")
-		if srcSendsToMethod.IsZero() {
-			panic(fmt.Sprintf("BUG: for stage %q, source of type %T does not have SendTo method", src, srcNode))
-		}
-		// check if they have compatible types
-		if srcNode.OutType() == dstNode.InType() {
-			srcSendsToMethod.Call([]reflect.Value{reflect.ValueOf(dstNode)})
-			return nil
-		}
-		// otherwise, we will add in intermediate codec layer
-		codec, ok := b.newCodec(srcNode.OutType(), dstNode.InType())
-		if !ok {
-			return fmt.Errorf("can't connect %q and %q stages because there isn't registered"+
-				" any %s -> %s codec", src, dst, srcNode.OutType(), dstNode.InType())
-		}
-		srcSendsToMethod.Call([]reflect.Value{codec})
-		codecSendsToMethod := codec.MethodByName("SendTo")
-		if codecSendsToMethod.IsZero() {
-			panic(fmt.Sprintf("BUG: for stage %q, codec of type %T does not have SendTo method", src, srcNode))
-		}
-		codecSendsToMethod.Call([]reflect.Value{reflect.ValueOf(dstNode)})
-		return nil
-	*/
 }
 
 // returns a node.Midle[?, ?] as a value

@@ -2,7 +2,9 @@ package graph
 
 import (
 	"slices"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -85,7 +87,7 @@ func SorterProvider(coll *Sorter) (node.TerminalFunc[int], error) {
 func TestDemuxed(t *testing.T) {
 	graphDefinition := struct {
 		Counter  `sendTo:"nonPos:Inverter,positive:Adder"`
-		Inverter `sendTo:"collect:Collector,sort:Sorter"`
+		Inverter `forwardTo:"collect:Collector,sort:Sorter"`
 		Adder    `sendTo:"Sorter"`
 		*Collector
 		*Sorter
@@ -183,10 +185,158 @@ func TestDemuxed_ForwardTo(t *testing.T) {
 	assert.Equal(t, []int{-9, -6, -3, 0, 4, 7, 10}, graphDefinition.Sorter.dst)
 }
 
-// TEST: forwarded nodes
-// TEST: Connector Implementer
-// TEST: options (e.g. channelbufferlen)
-// TEST: fail if a demuxed node has no "chan:dst" sendTo syntax
-// TEST: fail if a non-demuxed node has "chan:dst" sendTo sytax
-// TEST: fail if types are different
-// TEST: codecs
+func TestDemuxed_ChannelBufferLen_Unbuffered(t *testing.T) {
+	counterSubmits := atomic.Int32{}
+	var countedCounterProvider = func(_ Counter) (node.StartDemuxFunc, error) {
+		return func(out node.Demux) {
+			ch1 := node.DemuxGet[int](out, "ch1")
+			ch2 := node.DemuxGet[int](out, "ch2")
+			for i := 1; i <= 10; i++ {
+				ch1 <- i
+				counterSubmits.Add(1)
+				ch2 <- i * 10
+				counterSubmits.Add(1)
+			}
+		}, nil
+	}
+	unblock := make(chan struct{}, 1)
+	collected := make(chan int, 10)
+	var blockableCollector = func(_ Collector) (node.TerminalFunc[int], error) {
+		return func(in <-chan int) {
+			for {
+				<-unblock
+				i, ok := <-in
+				if !ok {
+					return
+				}
+				collected <- i
+			}
+		}, nil
+	}
+	gb := NewBuilder()
+	RegisterStartDemux(gb, countedCounterProvider)
+	RegisterTerminal(gb, blockableCollector)
+	grp, err := gb.Build(struct {
+		Counter `sendTo:"ch1:Collector,ch2:Collector"` // both outs send to the same channel, for the sake of brevity
+		Collector
+	}{})
+	require.NoError(t, err)
+	go grp.Run()
+	// check that the first submit is blocked until the collector reads the value
+	select {
+	case n := <-collected:
+		assert.Fail(t, "unexpected value is collected", n)
+	default: //ok!
+	}
+	assert.EqualValues(t, 0, counterSubmits.Load())
+	// unblock and check that the collector received one and only one number
+	unblock <- struct{}{}
+	val := helpers.ReadChannel(t, collected, timeout)
+	assert.EqualValues(t, 1, val)
+	assert.Eventually(t, func() bool { return counterSubmits.Load() == 1 }, timeout, time.Millisecond)
+	assert.EqualValues(t, 1, counterSubmits.Load())
+	// check that the second submit is blocked until the collector reads the value
+	select {
+	case n := <-collected:
+		assert.Fail(t, "unexpected value is collected", n)
+	default: //ok!
+	}
+	// unblock few more and check that the collected and submit stats coincide
+	unblock <- struct{}{}
+	val = helpers.ReadChannel(t, collected, timeout)
+	assert.EqualValues(t, 10, val)
+	assert.Eventually(t, func() bool { return counterSubmits.Load() == 2 }, timeout, time.Millisecond)
+	unblock <- struct{}{}
+	val = helpers.ReadChannel(t, collected, timeout)
+	assert.Equal(t, 2, val)
+	unblock <- struct{}{}
+	val = helpers.ReadChannel(t, collected, timeout)
+	assert.Equal(t, 20, val)
+	unblock <- struct{}{}
+	val = helpers.ReadChannel(t, collected, timeout)
+	assert.Equal(t, 3, val)
+	assert.Eventually(t, func() bool { return counterSubmits.Load() == 5 }, timeout, time.Millisecond)
+}
+
+func TestDemuxed_ChannelBufferLen_Buffered(t *testing.T) {
+	counterSubmits1 := atomic.Int32{}
+	counterSubmits2 := atomic.Int32{}
+	var countedCounterProvider = func(_ Counter) (node.StartDemuxFunc, error) {
+		return func(out node.Demux) {
+			ch1 := node.DemuxGet[int](out, "ch1")
+			ch2 := node.DemuxGet[int](out, "ch2")
+			for i := 1; i <= 10; i++ {
+				ch1 <- i
+				counterSubmits1.Add(1)
+				ch2 <- i * 10
+				counterSubmits2.Add(1)
+			}
+		}, nil
+	}
+	var blockedCollector1 = func(_ Collector) (node.TerminalFunc[int], error) {
+		return func(in <-chan int) {
+			unblock := make(chan struct{}, 1)
+			<-unblock
+		}, nil
+	}
+	type Collector2 struct{}
+	var blockedCollector2 = func(_ Collector2) (node.TerminalFunc[int], error) {
+		return func(in <-chan int) {
+			unblock := make(chan struct{}, 1)
+			<-unblock
+		}, nil
+	}
+	gb := NewBuilder(node.ChannelBufferLen(3))
+	RegisterStartDemux(gb, countedCounterProvider)
+	RegisterTerminal(gb, blockedCollector1)
+	RegisterTerminal(gb, blockedCollector2)
+	grp, err := gb.Build(struct {
+		Counter `sendTo:"ch1:Collector,ch2:Collector2"`
+		Collector
+		Collector2
+	}{})
+	require.NoError(t, err)
+	go grp.Run()
+	// check that the even if we don't unblock the collector, it is able to send 3 numbers on each channel
+	assert.Eventually(t, func() bool { return counterSubmits2.Load() == 3 }, timeout, time.Millisecond)
+	assert.EqualValues(t, 3, counterSubmits1.Load())
+}
+
+func TestDemuxed_Errors(t *testing.T) {
+	var collectorValueProvider = func(c Collector) (node.TerminalFunc[int], error) {
+		return CollectorProvider(&c)
+	}
+	t.Run("error if no destinations are defined", func(t *testing.T) {
+		gb := NewBuilder()
+		RegisterStartDemux(gb, CounterProvider)
+		RegisterTerminal(gb, collectorValueProvider)
+		_, err := gb.Build(struct {
+			Counter
+			Collector
+		}{})
+		assert.Error(t, err)
+	})
+	t.Run("error if non-demuxed has a chan:dst syntax", func(t *testing.T) {
+		var nonDemuxedStartProvider = func(_ Counter) (node.StartFunc[int], error) {
+			return func(out chan<- int) {}, nil
+		}
+		gb := NewBuilder()
+		RegisterStart(gb, nonDemuxedStartProvider)
+		RegisterTerminal(gb, collectorValueProvider)
+		_, err := gb.Build(struct {
+			Counter `sendTo:"chan:Collector"`
+			Collector
+		}{})
+		assert.Error(t, err)
+	})
+	t.Run("error if demuxed has not a chan:dst syntax", func(t *testing.T) {
+		gb := NewBuilder()
+		RegisterStartDemux(gb, CounterProvider)
+		RegisterTerminal(gb, collectorValueProvider)
+		_, err := gb.Build(struct {
+			Counter `sendTo:"Collector"`
+			Collector
+		}{})
+		assert.Error(t, err)
+	})
+}

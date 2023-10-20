@@ -1,8 +1,13 @@
 # CHANGELOG
 
-# Next
+# v0.9.0
 
 * Low-level API: start and middle node output demuxers
+* High-level API: start and middle node output demuxers
+  * Known limitation: Codecs won't work, as the demux output is dynamically
+    created at build time from the destination node inputs. It will cause
+    a panic inside the demuxed node if the DemuxGet[T1] type is different
+    from the type that Pipe's used to invoke DemuxAdd[T2]
 
 # v0.8.0
 
