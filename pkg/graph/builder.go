@@ -21,42 +21,47 @@ type codecKey struct {
 	Out reflect.Type
 }
 
-type reflectedStartNode struct {
-	out      outTyper
-	outDemux reflect.Value
-}
+// outTyper is any node with an output channel: node.Start, node.Middle
 type outTyper interface {
 	OutType() reflect.Type
 }
 
+// inTyper is any node with an input channel: node.Middle, node.Terminal, node.MiddleDemux, node.TerminalDemux
 type inTyper interface {
 	InType() reflect.Type
 }
 
+// inOutTyper is any node with an input and an output channel: node.Middle
 type inOutTyper interface {
 	inTyper
 	outTyper
 }
 
-type reflectedInOutTyper struct {
+// inDemuxedOutTyper type is any node with an input channel and an output Demux: node.MiddleDemux
+type inDemuxedOutTyper interface {
+	inTyper
+	node.Demuxed
+}
+
+// destinableInNode stores information about any node that can be connected as output of another node.
+// It keeps information about the input node and a reflected reference to DemuxAdd[T]
+type destinableInNode struct {
+	node          inTyper
+	inputDemuxAdd reflect.Value
+}
+
+// destinableInOutNode stores information about any node that can be connected as output of another node,
+// and also has an output to another node.
+// it keeps information about the in/out node and a reflected reference to DemuxAdd[T]
+type destinableInOutNode struct {
 	node          inOutTyper
 	inputDemuxAdd reflect.Value
 }
 
-type reflectedInTyper struct {
-	node          inTyper
-	inputDemuxAdd reflect.Value
-}
-
-type reflectedDstNode struct {
+type reflectedDemuxedNode struct {
 	node          inTyper
 	inputDemuxAdd reflect.Value
 	demuxed       node.Demuxed // nillable
-}
-
-type inDemuxedTyper interface {
-	inTyper
-	node.Demuxed
 }
 
 type reflectedNode struct {
@@ -82,11 +87,11 @@ type Builder struct {
 	// non-demuxed nodes
 	// keys: instance IDs
 	startNodes  map[string]outTyper
-	middleNodes map[string]reflectedInOutTyper
-	termNodes   map[string]reflectedInTyper
-	// demuxed nodes that do not directly implement OutTyper
+	middleNodes map[string]destinableInOutNode
+	termNodes   map[string]destinableInNode
+	// demuxed nodes that do not directly implement outTyper but node.Demuxed
 	startDemuxedNodes  map[string]node.Demuxed
-	middleDemuxedNodes map[string]reflectedDstNode
+	middleDemuxedNodes map[string]reflectedDemuxedNode
 
 	options []reflect.Value
 	// used to check unconnected nodes
@@ -111,10 +116,10 @@ func NewBuilder(options ...node.Option) *Builder {
 		middleProviders:    map[reflect.Type]reflectedNode{}, // stage.MiddleProvider{},
 		terminalProviders:  map[reflect.Type]reflectedNode{}, // stage.TerminalProvider{},
 		startNodes:         map[string]outTyper{},            // *node.Start
-		middleNodes:        map[string]reflectedInOutTyper{}, // *node.Middle
-		termNodes:          map[string]reflectedInTyper{},    // *node.Terminal
+		middleNodes:        map[string]destinableInOutNode{}, // *node.Middle
+		termNodes:          map[string]destinableInNode{},    // *node.Terminal
 		startDemuxedNodes:  map[string]node.Demuxed{},
-		middleDemuxedNodes: map[string]reflectedDstNode{},
+		middleDemuxedNodes: map[string]reflectedDemuxedNode{},
 		options:            optVals,
 		inNodeNames:        map[string]struct{}{},
 		outNodeNames:       map[string]struct{}{},
@@ -292,14 +297,14 @@ func (nb *Builder) instantiateMiddle(instanceID string, tb reflectedNode, rargs 
 	// middleNode = AsMiddle(providedFunc, nb.options...)
 	middleNode := tb.instancer.Call(append([]reflect.Value{providedFunc}, nb.options...))
 	if tb.demuxed {
-		mn := middleNode[0].Interface().(inDemuxedTyper)
-		nb.middleDemuxedNodes[instanceID] = reflectedDstNode{
+		mn := middleNode[0].Interface().(inDemuxedOutTyper)
+		nb.middleDemuxedNodes[instanceID] = reflectedDemuxedNode{
 			node:          mn,
 			inputDemuxAdd: tb.inputDemuxAdd,
 			demuxed:       mn,
 		}
 	} else {
-		nb.middleNodes[instanceID] = reflectedInOutTyper{
+		nb.middleNodes[instanceID] = destinableInOutNode{
 			node:          middleNode[0].Interface().(inOutTyper),
 			inputDemuxAdd: tb.inputDemuxAdd,
 		}
@@ -321,7 +326,7 @@ func (nb *Builder) instantiateTerminal(instanceID string, eb reflectedNode, rarg
 
 	// termNode = AsTerminal(providedFunc, nb.options...)
 	termNode := eb.instancer.Call(append([]reflect.Value{providedFunc}, nb.options...))
-	nb.termNodes[instanceID] = reflectedInTyper{
+	nb.termNodes[instanceID] = destinableInNode{
 		node:          termNode[0].Interface().(inTyper),
 		inputDemuxAdd: eb.inputDemuxAdd,
 	}
@@ -375,7 +380,7 @@ func (b *Builder) connect(src string, dst dstConnector) error {
 	}
 }
 
-func (b *Builder) directConnection(srcName string, dstName dstConnector, srcNode outTyper, dstNode reflectedDstNode) error {
+func (b *Builder) directConnection(srcName string, dstName dstConnector, srcNode outTyper, dstNode reflectedDemuxedNode) error {
 	srcSendsToMethod := reflect.ValueOf(srcNode).MethodByName("SendTo")
 	if srcSendsToMethod.IsZero() {
 		panic(fmt.Sprintf("BUG: for stage %q, source of type %T does not have SendTo method", srcName, srcNode))
@@ -400,7 +405,7 @@ func (b *Builder) directConnection(srcName string, dstName dstConnector, srcNode
 	return nil
 }
 
-func (b *Builder) demuxedConnection(src string, dstName dstConnector, srcNode node.Demuxed, dstNode reflectedDstNode) error {
+func (b *Builder) demuxedConnection(src string, dstName dstConnector, srcNode node.Demuxed, dstNode reflectedDemuxedNode) error {
 
 	// demux := DemuxAdd[outType](srcNode, "chanName")
 
@@ -474,24 +479,24 @@ func (b *Builder) getSrcDemuxedNode(id string) (node.Demuxed, bool) {
 	return nil, false
 }
 
-func (b *Builder) getDstNode(id string) (reflectedDstNode, bool) {
+func (b *Builder) getDstNode(id string) (reflectedDemuxedNode, bool) {
 	if dstNode, ok := b.middleNodes[id]; ok {
-		return reflectedDstNode{
+		return reflectedDemuxedNode{
 			node:          dstNode.node,
 			inputDemuxAdd: dstNode.inputDemuxAdd,
 		}, true
 	}
 	if dstNode, ok := b.middleDemuxedNodes[id]; ok {
-		return reflectedDstNode{
+		return reflectedDemuxedNode{
 			node:          dstNode.node,
 			inputDemuxAdd: dstNode.inputDemuxAdd,
 		}, true
 	}
 	if dstNode, ok := b.termNodes[id]; ok {
-		return reflectedDstNode{
+		return reflectedDemuxedNode{
 			node:          dstNode.node,
 			inputDemuxAdd: dstNode.inputDemuxAdd,
 		}, true
 	}
-	return reflectedDstNode{}, false
+	return reflectedDemuxedNode{}, false
 }
