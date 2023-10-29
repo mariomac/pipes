@@ -1,3 +1,5 @@
+// Package graph works on top of the node package and provides a Domain-Specific Language
+// for a flexible definition of node graphs and their interconnections.
 package graph
 
 import (
