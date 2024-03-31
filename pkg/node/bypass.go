@@ -6,6 +6,16 @@ import (
 	"github.com/mariomac/pipes/pkg/node/internal/connect"
 )
 
+// Bypass node just makes sure, at graph construction time, that the inputs of this node
+// are bypassed to the destination nodes.
+// At a logical level, you can see a Bypass node as a Middle[T, T] node that just forwards
+// its input to the output channel.
+// At an implementation level, Bypass[T] is much more efficient because it just makes sure
+// that its input channel is connected to its destination nodes, without adding any extra
+// goroutine nor channel operation.
+// Bypass is useful for implementing constructors that might return an optional Middle[T, T] node
+// (according to e.g. the user configuration) or just a Bypass[T] node to transparently
+// forward data to the destination nodes.
 type Bypass[INOUT any] struct {
 	outs []Receiver[INOUT]
 }

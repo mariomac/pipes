@@ -29,7 +29,7 @@ type TerminalFunc[IN any] func(in <-chan IN)
 
 // Sender is any node that can send data to another node: node.Start and node.Middle
 type Sender[OUT any] interface {
-	// SendsTo connect a sender with a group of receivers
+	// SendTo connect a sender with a group of receivers
 	SendTo(...Receiver[OUT])
 	// OutType returns the inner type of the Sender's output channel
 	OutType() reflect.Type
