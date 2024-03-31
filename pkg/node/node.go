@@ -29,7 +29,7 @@ type TerminalFunc[IN any] func(in <-chan IN)
 
 // Sender is any node that can send data to another node: node.Start and node.Middle
 type Sender[OUT any] interface {
-	// SendsTo connect a sender with a group of receivers
+	// SendTo connect a sender with a group of receivers
 	SendTo(...Receiver[OUT])
 	// OutType returns the inner type of the Sender's output channel
 	OutType() reflect.Type
@@ -39,7 +39,10 @@ type Sender[OUT any] interface {
 type Receiver[IN any] interface {
 	isStarted() bool
 	start()
-	joiner() *connect.Joiner[IN]
+	// joiners will usually return only one joiner instance but in
+	// the case of a BypassNode, which might return the joiners of
+	// all their destination nodes
+	joiners() []*connect.Joiner[IN]
 	// InType returns the inner type of the Receiver's input channel
 	InType() reflect.Type
 }
@@ -66,8 +69,8 @@ type Middle[IN, OUT any] struct {
 	inType  reflect.Type
 }
 
-func (i *Middle[IN, OUT]) joiner() *connect.Joiner[IN] {
-	return &i.inputs
+func (i *Middle[IN, OUT]) joiners() []*connect.Joiner[IN] {
+	return []*connect.Joiner[IN]{&i.inputs}
 }
 
 func (i *Middle[IN, OUT]) isStarted() bool {
@@ -96,8 +99,8 @@ type Terminal[IN any] struct {
 	inType  reflect.Type
 }
 
-func (i *Terminal[IN]) joiner() *connect.Joiner[IN] {
-	return &i.inputs
+func (i *Terminal[IN]) joiners() []*connect.Joiner[IN] {
+	return []*connect.Joiner[IN]{&i.inputs}
 }
 
 func (t *Terminal[IN]) isStarted() bool {
@@ -175,7 +178,7 @@ func (i *Middle[IN, OUT]) start() {
 	i.started = true
 	joiners := make([]*connect.Joiner[OUT], 0, len(i.outs))
 	for _, out := range i.outs {
-		joiners = append(joiners, out.joiner())
+		joiners = append(joiners, out.joiners()...)
 		if !out.isStarted() {
 			out.start()
 		}
@@ -229,7 +232,7 @@ func (i *receiverGroup[OUT]) StartReceivers() (*connect.Forker[OUT], error) {
 	}
 	joiners := make([]*connect.Joiner[OUT], 0, len(i.Outs))
 	for _, out := range i.Outs {
-		joiners = append(joiners, out.joiner())
+		joiners = append(joiners, out.joiners()...)
 		if !out.isStarted() {
 			out.start()
 		}
