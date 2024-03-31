@@ -1,5 +1,8 @@
 # High-Level API tutorial 01: basic nodes in High-Level API
 
+**DEPRECATED API**: it will be removed in future versions of
+this library.
+
 In the previous tutorial about the [basics of the low-level API](../lowlevel/01-nodes/), the nodes
 of the example graph were explicitly instantiated and connected with the `SendTo`
 method.

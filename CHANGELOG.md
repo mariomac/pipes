@@ -1,7 +1,9 @@
 # CHANGELOG
 
-# v0.10.0
+# next
 * Added bypass node
+* Added `node.StartAll` and `node.DoneAll` convenience types
+* With the additions in this version, the high-level graph API is deprecated.
 
 # v0.9.0
 

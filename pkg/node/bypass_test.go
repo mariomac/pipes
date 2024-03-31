@@ -31,8 +31,7 @@ func TestBypass_Single(t *testing.T) {
 	bypass.SendTo(term, termMul)
 
 	start.Start()
-	helpers.ReadChannel(t, term.Done(), timeout)
-	helpers.ReadChannel(t, termMul.Done(), timeout)
+	helpers.ReadChannel(t, DoneAll(term, termMul), timeout)
 
 	assert.Equal(t, []int{1, 2, 3}, recv)
 	assert.Equal(t, []int{10, 20, 30}, recvMul)
@@ -63,8 +62,7 @@ func TestBypass_Multi(t *testing.T) {
 	bypass3.SendTo(term, termMul)
 
 	start.Start()
-	helpers.ReadChannel(t, term.Done(), timeout)
-	helpers.ReadChannel(t, termMul.Done(), timeout)
+	helpers.ReadChannel(t, DoneAll(term, termMul), timeout)
 
 	assert.Equal(t, []int{1, 2, 3}, recv)
 	assert.Equal(t, []int{10, 20, 30}, recvMul)
@@ -102,8 +100,7 @@ func TestBypass_Mixed(t *testing.T) {
 	mul.SendTo(termAdd)
 
 	start.Start()
-	helpers.ReadChannel(t, term.Done(), timeout)
-	helpers.ReadChannel(t, termAdd.Done(), timeout)
+	helpers.ReadChannel(t, DoneAll(term, termAdd), timeout)
 
 	assert.Equal(t, []int{1, 2, 3}, recv)
 	assert.Equal(t, []int{11, 21, 31}, recvAdd)

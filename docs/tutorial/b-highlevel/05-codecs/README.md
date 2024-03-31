@@ -1,5 +1,8 @@
 # Tutorial 03: Coder/Decoders (Codecs)
 
+**DEPRECATED API**: it will be removed in future versions of
+this library.
+
 > ⚠️ This document is outdated and the code examples could not compile in a
 > recent version of Pipes. Stay tuned for a newer version
 

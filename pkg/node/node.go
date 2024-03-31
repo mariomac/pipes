@@ -158,6 +158,12 @@ func AsTerminal[IN any](fun TerminalFunc[IN], opts ...Option) *Terminal[IN] {
 // Start starts the function wrapped in the Start node. This method should be invoked
 // for all the start nodes of the same graph, so the graph can properly start and finish.
 func (i *Start[OUT]) Start() {
+	// a nil start node can be started without no effect on the graph.
+	// this allows setting optional nillable start nodes and let start all of them
+	// as a group in a more convenient way
+	if i == nil {
+		return
+	}
 	forker, err := i.receiverGroup.StartReceivers()
 	if err != nil {
 		panic("Start: " + err.Error())
@@ -214,6 +220,15 @@ type receiverGroup[OUT any] struct {
 }
 
 // SendTo connects a group of receivers to the current receiverGroup
+func (s *Start[OUT]) SendTo(outputs ...Receiver[OUT]) {
+	// a nil start node can be operated without no effect on the graph.
+	// this allows connecting optional nillable start nodes and let start all of them
+	// as a group in a more convenient way
+	if s != nil {
+		s.receiverGroup.SendTo(outputs...)
+	}
+}
+
 func (s *receiverGroup[OUT]) SendTo(outputs ...Receiver[OUT]) {
 	s.Outs = append(s.Outs, outputs...)
 }
