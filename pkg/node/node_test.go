@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	helpers "github.com/mariomac/pipes/pkg/test"
 )
 
 const timeout = 2 * time.Second
@@ -41,8 +43,7 @@ func TestBasicGraph(t *testing.T) {
 	oddsMsg.SendTo(collector)
 	evensMsg.SendTo(collector)
 
-	start1.Start()
-	start2.Start()
+	StartAll(start1, start2)
 
 	select {
 	case <-collector.Done():
@@ -205,6 +206,25 @@ func TestConfigurationOptions_BufferedChannelCommunication(t *testing.T) {
 		require.Fail(t, "timeout while waiting for the terminal node to finish")
 	}
 
+}
+
+func TestStart_Nil(t *testing.T) {
+	var nilStart *Start[int]
+	start := AsStart(Counter(1, 3))
+	var collected []int
+	collector := AsTerminal(func(ints <-chan int) {
+		for i := range ints {
+			collected = append(collected, i)
+		}
+	})
+	// test that a nil start just don't crashes. It's just ignored
+	assert.NotPanics(t, func() {
+		start.SendTo(collector)
+		nilStart.SendTo(collector)
+		StartAll(start, nilStart)
+
+		helpers.ReadChannel(t, collector.Done(), timeout)
+	})
 }
 
 func TestMultiNodes(t *testing.T) {
