@@ -1,5 +1,8 @@
 # High-Level API tutorial 02: annotations to compose a graph
 
+**DEPRECATED API**: it will be removed in future versions of
+this library.
+
 The [previous tutorial](../01-basic-nodes/) shown how to use the `sendTo` annotation
 to compose a graph, and barely mentioned the `nodeId` annotation to
 override the node ID:

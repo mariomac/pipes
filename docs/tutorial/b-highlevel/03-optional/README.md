@@ -1,5 +1,8 @@
 # High-Level API tutorial 03: optional nodes
 
+**DEPRECATED API**: it will be removed in future versions of
+this library.
+
 Imagine we want to construct a program that reads a text string and,
 after processing all its words, shows a list of anagrams contained in the
 input text.

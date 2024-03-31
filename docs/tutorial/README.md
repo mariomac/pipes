@@ -9,6 +9,9 @@
 
 ## High-Level API
 
+**DEPRECATED API**: it will be removed in future versions of
+this library.
+
 The high-level API relies internally on the low-level API, so
 it is recommended to first follow the low-level API tutorials
 for a better understanding of the underlying behavior.
