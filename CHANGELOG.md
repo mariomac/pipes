@@ -4,6 +4,7 @@
 * Added bypass node
 * Added `node.StartAll` and `node.DoneAll` convenience types
 * With the additions in this version, the high-level graph API is deprecated.
+* Added public `node.SenderReceiver` interface.
 
 # v0.9.0
 

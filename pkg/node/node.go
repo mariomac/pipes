@@ -27,7 +27,7 @@ type TerminalFunc[IN any] func(in <-chan IN)
 
 // TODO: OutType and InType methods are candidates for deprecation
 
-// Sender is any node that can send data to another node: node.Start and node.Middle
+// Sender is any node that can send data to another node: node.Start, node.Middle and node.Bypass
 type Sender[OUT any] interface {
 	// SendTo connect a sender with a group of receivers
 	SendTo(...Receiver[OUT])
@@ -35,7 +35,7 @@ type Sender[OUT any] interface {
 	OutType() reflect.Type
 }
 
-// Receiver is any node that can receive data from another node: node.Middle and node.Terminal
+// Receiver is any node that can receive data from another node: node.Bypass, node.Middle and node.Terminal
 type Receiver[IN any] interface {
 	isStarted() bool
 	start()
@@ -45,6 +45,12 @@ type Receiver[IN any] interface {
 	joiners() []*connect.Joiner[IN]
 	// InType returns the inner type of the Receiver's input channel
 	InType() reflect.Type
+}
+
+// SenderReceiver is any node that can both send and receive data: node.Bypass or node.Middle.
+type SenderReceiver[IN, OUT any] interface {
+	Receiver[IN]
+	Sender[OUT]
 }
 
 // Start nodes are the starting points of a graph. This is, all the nodes that bring information
