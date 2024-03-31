@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# v0.10.0
+* Added bypass node
+
 # v0.9.0
 
 * Low-level API: start and middle node output demuxers
