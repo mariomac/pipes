@@ -105,11 +105,17 @@ type Terminal[IN any] struct {
 	inType  reflect.Type
 }
 
-func (i *Terminal[IN]) joiners() []*connect.Joiner[IN] {
-	return []*connect.Joiner[IN]{&i.inputs}
+func (t *Terminal[IN]) joiners() []*connect.Joiner[IN] {
+	if t == nil {
+		return nil
+	}
+	return []*connect.Joiner[IN]{&t.inputs}
 }
 
 func (t *Terminal[IN]) isStarted() bool {
+	if t == nil {
+		return false
+	}
 	return t.started
 }
 
@@ -118,6 +124,11 @@ func (t *Terminal[IN]) isStarted() bool {
 // allows blocking the execution until all the data in the graph has been processed and all the
 // previous stages have ended
 func (t *Terminal[IN]) Done() <-chan struct{} {
+	if t == nil {
+		closed := make(chan struct{})
+		close(closed)
+		return closed
+	}
 	return t.done
 }
 
@@ -203,6 +214,9 @@ func (i *Middle[IN, OUT]) start() {
 }
 
 func (t *Terminal[IN]) start() {
+	if t == nil {
+		return
+	}
 	t.started = true
 	go func() {
 		t.fun(t.inputs.Receiver())

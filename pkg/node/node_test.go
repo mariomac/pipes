@@ -208,10 +208,11 @@ func TestConfigurationOptions_BufferedChannelCommunication(t *testing.T) {
 
 }
 
-func TestStart_Nil(t *testing.T) {
+func TestNilNodes(t *testing.T) {
 	var nilStart *Start[int]
 	start := AsStart(Counter(1, 3))
 	var collected []int
+	var nilTerminal *Terminal[int]
 	collector := AsTerminal(func(ints <-chan int) {
 		for i := range ints {
 			collected = append(collected, i)
@@ -219,11 +220,11 @@ func TestStart_Nil(t *testing.T) {
 	})
 	// test that a nil start just don't crashes. It's just ignored
 	assert.NotPanics(t, func() {
-		start.SendTo(collector)
-		nilStart.SendTo(collector)
+		start.SendTo(collector, nilTerminal)
+		nilStart.SendTo(collector, nilTerminal)
 		StartAll(start, nilStart)
 
-		helpers.ReadChannel(t, collector.Done(), timeout)
+		helpers.ReadChannel(t, DoneAll(collector, nilTerminal), timeout)
 	})
 }
 
