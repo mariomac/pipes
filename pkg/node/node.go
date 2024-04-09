@@ -48,10 +48,10 @@ type SenderReceiver[IN, OUT any] interface {
 	Sender[OUT]
 }
 
-// start nodes are the starting points of a graph. This is, all the nodes that bring information
-// from outside the graph: e.g. because they generate them or because they acquire them from an
+// start nodes are the starting points of a pipeline. This is, all the nodes that bring information
+// from outside the pipeline: e.g. because they generate them or because they acquire them from an
 // external source like a Web Service.
-// A graph must have at least one start or StartDemux node.
+// A pipe must have at least one active start node.
 // An start node must have at least one output node.
 type start[OUT any] struct {
 	receiverGroup[OUT]
@@ -81,7 +81,7 @@ func (m *middle[IN, OUT]) SendTo(outputs ...Receiver[OUT]) {
 }
 
 // terminal is any node that receives data from another node and does not forward it to another node,
-// but can process it and send the results to outside the graph (e.g. memory, storage, web...)
+// but can process it and send the results to outside the pipeline (e.g. memory, storage, web...)
 type terminal[IN any] struct {
 	inputs  connect.Joiner[IN]
 	started bool
@@ -105,7 +105,7 @@ func (t *terminal[IN]) isStarted() bool {
 
 // Done returns a channel that is closed when the terminal node has ended its processing. This
 // is, when all its inputs have been also closed. Waiting for all the terminal nodes to finish
-// allows blocking the execution until all the data in the graph has been processed and all the
+// allows blocking the execution until all the data in the pipeline has been processed and all the
 // previous stages have ended
 func (t *terminal[IN]) Done() <-chan struct{} {
 	if t == nil {
@@ -150,10 +150,10 @@ func asTerminal[IN any](fun TerminalFunc[IN], opts ...Option) *terminal[IN] {
 	}
 }
 
-// start starts the function wrapped in the start node. This method should be invoked
-// for all the start nodes of the same graph, so the graph can properly start and finish.
+// Start the function wrapped in the start node. This method should be invoked
+// for all the start nodes of the same pipeline, so the pipeline can properly start and finish.
 func (i *start[OUT]) Start() {
-	// a nil start node can be started without no effect on the graph.
+	// a nil start node can be started without no effect on the pipeline.
 	// this allows setting optional nillable start nodes and let start all of them
 	// as a group in a more convenient way
 	if i == nil {
@@ -216,7 +216,7 @@ type receiverGroup[OUT any] struct {
 
 // SendTo connects a group of receivers to the current receiverGroup
 func (s *start[OUT]) SendTo(outputs ...Receiver[OUT]) {
-	// a nil start node can be operated without no effect on the graph.
+	// a nil start node can be operated without no effect on the pipeline.
 	// this allows connecting optional nillable start nodes and let start all of them
 	// as a group in a more convenient way
 	if s != nil {

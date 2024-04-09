@@ -1,3 +1,5 @@
+//go:build ignoreme
+
 package node
 
 import (

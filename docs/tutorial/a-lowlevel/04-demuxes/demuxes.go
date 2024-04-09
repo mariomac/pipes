@@ -6,9 +6,9 @@ import (
 	"github.com/mariomac/pipes/pkg/node"
 )
 
-func Generator(outs node.Demux) {
-	nonPositive := node.DemuxGet[int](outs, "nonPositive")
-	positive := node.DemuxGet[int](outs, "positive")
+func Generator(outs node.hideMeDemux) {
+	nonPositive := node.hideMeDemuxGet[int](outs, "nonPositive")
+	positive := node.hideMeDemuxGet[int](outs, "positive")
 	for i := -3; i <= 17; i++ {
 		if i <= 0 {
 			nonPositive <- i
@@ -18,9 +18,9 @@ func Generator(outs node.Demux) {
 	}
 }
 
-func PrimeFilter(in <-chan int, outs node.Demux) {
-	primes := node.DemuxGet[int](outs, "primes")
-	notPrimes := node.DemuxGet[int](outs, "notPrimes")
+func PrimeFilter(in <-chan int, outs node.hideMeDemux) {
+	primes := node.hideMeDemuxGet[int](outs, "primes")
+	notPrimes := node.hideMeDemuxGet[int](outs, "notPrimes")
 
 nextInput:
 	for i := range in {
@@ -55,10 +55,10 @@ func main() {
 	primeFilter := node.AsMiddleDemux(PrimeFilter)
 	primePrinter := node.asTerminal(PrimePrinter)
 	discardPrinter := node.asTerminal(DiscardedPrinter)
-	node.DemuxAdd[int](generator, "nonPositive").SendTo(discardPrinter)
-	node.DemuxAdd[int](generator, "positive").SendTo(primeFilter)
-	node.DemuxAdd[int](primeFilter, "primes").SendTo(primePrinter)
-	node.DemuxAdd[int](primeFilter, "notPrimes").SendTo(discardPrinter)
+	node.hideMeDemuxAdd[int](generator, "nonPositive").SendTo(discardPrinter)
+	node.hideMeDemuxAdd[int](generator, "positive").SendTo(primeFilter)
+	node.hideMeDemuxAdd[int](primeFilter, "primes").SendTo(primePrinter)
+	node.hideMeDemuxAdd[int](primeFilter, "notPrimes").SendTo(discardPrinter)
 
 	generator.Start()
 
