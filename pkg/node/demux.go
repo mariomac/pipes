@@ -84,11 +84,9 @@ func (do *demuxOut[OUT]) SendTo(outs ...Receiver[OUT]) {
 // Experimental API. Some names could change in the following versions.
 func DemuxAdd[OUT any](d Demuxed, key any) Sender[OUT] {
 	demux := d.demuxBuilder()
-	var out OUT
-	to := reflect.TypeOf(out)
 	outNod, ok := demux.outNodes[key]
 	if !ok {
-		outNod = reflect.ValueOf(&receiverGroup[OUT]{outType: to})
+		outNod = reflect.ValueOf(&receiverGroup[OUT]{})
 		demux.outNodes[key] = outNod
 	}
 
@@ -110,12 +108,12 @@ func DemuxGet[OUT any](d Demux, key any) chan<- OUT {
 	}
 }
 
-// StartDemux is equivalent to a Start node, but receiving a Demux instead
+// StartDemux is equivalent to a start node, but receiving a Demux instead
 // of a writable channel.
-// Start nodes are the starting points of a graph. This is, all the nodes that bring information
+// start nodes are the starting points of a graph. This is, all the nodes that bring information
 // from outside the graph: e.g. because they generate them or because they acquire them from an
 // external source like a Web Service.
-// A graph must have at least one Start or StartDemux node.
+// A graph must have at least one start or StartDemux node.
 // A StartDemux node must have at least one output node.
 // Experimental API. Some names could change in the following versions.
 type StartDemux struct {
@@ -137,7 +135,7 @@ func (i *StartDemux) demuxBuilder() *demuxBuilder {
 	return &i.demux
 }
 
-// Start starts the function wrapped in the StartDemux node. This method should be invoked
+// start starts the function wrapped in the StartDemux node. This method should be invoked
 // for all the start nodes of the same graph, so the graph can properly start and finish.
 func (i *StartDemux) Start() {
 	releasers, demux := startAndCollectReleaseFuncs(i)

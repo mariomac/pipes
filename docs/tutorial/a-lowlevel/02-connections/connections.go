@@ -36,10 +36,10 @@ func Printer() node.TerminalFunc[int] {
 }
 
 func main() {
-	count := node.AsStart(Counter(1, 4))
-	mult2 := node.AsMiddle(Multiplier(2))
-	mult10 := node.AsMiddle(Multiplier(10))
-	printer := node.AsTerminal(Printer())
+	count := node.asStart(Counter(1, 4))
+	mult2 := node.asMiddle(Multiplier(2))
+	mult10 := node.asMiddle(Multiplier(10))
+	printer := node.asTerminal(Printer())
 
 	count.SendTo(mult2, mult10)
 	mult2.SendTo(printer)

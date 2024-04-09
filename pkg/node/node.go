@@ -7,7 +7,6 @@ package node
 
 import (
 	"errors"
-	"reflect"
 
 	"github.com/mariomac/pipes/pkg/node/internal/connect"
 )
@@ -27,15 +26,13 @@ type TerminalFunc[IN any] func(in <-chan IN)
 
 // TODO: OutType and InType methods are candidates for deprecation
 
-// Sender is any node that can send data to another node: node.Start, node.Middle and node.Bypass
+// Sender is any node that can send data to another node: node.start, node.middle and node.bypass
 type Sender[OUT any] interface {
 	// SendTo connect a sender with a group of receivers
-	SendTo(...Receiver[OUT])
-	// OutType returns the inner type of the Sender's output channel
-	OutType() reflect.Type
+	SendTo(r ...Receiver[OUT])
 }
 
-// Receiver is any node that can receive data from another node: node.Bypass, node.Middle and node.Terminal
+// Receiver is any node that can receive data from another node: node.bypass, node.middle and node.terminal
 type Receiver[IN any] interface {
 	isStarted() bool
 	start()
@@ -43,87 +40,74 @@ type Receiver[IN any] interface {
 	// the case of a BypassNode, which might return the joiners of
 	// all their destination nodes
 	joiners() []*connect.Joiner[IN]
-	// InType returns the inner type of the Receiver's input channel
-	InType() reflect.Type
 }
 
-// SenderReceiver is any node that can both send and receive data: node.Bypass or node.Middle.
+// SenderReceiver is any node that can both send and receive data: node.bypass or node.middle.
 type SenderReceiver[IN, OUT any] interface {
 	Receiver[IN]
 	Sender[OUT]
 }
 
-// Start nodes are the starting points of a graph. This is, all the nodes that bring information
+// start nodes are the starting points of a graph. This is, all the nodes that bring information
 // from outside the graph: e.g. because they generate them or because they acquire them from an
 // external source like a Web Service.
-// A graph must have at least one Start or StartDemux node.
-// An Start node must have at least one output node.
-type Start[OUT any] struct {
+// A graph must have at least one start or StartDemux node.
+// An start node must have at least one output node.
+type start[OUT any] struct {
 	receiverGroup[OUT]
-	funs []StartFunc[OUT]
+	fun StartFunc[OUT]
 }
 
-// Middle is any intermediate node that receives data from another node, processes/filters it,
+// middle is any intermediate node that receives data from another node, processes/filters it,
 // and forwards the data to another node.
-// An Middle node must have at least one output node.
-type Middle[IN, OUT any] struct {
+// An middle node must have at least one output node.
+type middle[IN, OUT any] struct {
 	outs    []Receiver[OUT]
 	inputs  connect.Joiner[IN]
 	started bool
 	fun     MiddleFunc[IN, OUT]
-	outType reflect.Type
-	inType  reflect.Type
 }
 
-func (i *Middle[IN, OUT]) joiners() []*connect.Joiner[IN] {
-	return []*connect.Joiner[IN]{&i.inputs}
+func (m *middle[IN, OUT]) joiners() []*connect.Joiner[IN] {
+	return []*connect.Joiner[IN]{&m.inputs}
 }
 
-func (i *Middle[IN, OUT]) isStarted() bool {
-	return i.started
+func (m *middle[IN, OUT]) isStarted() bool {
+	return m.started
 }
 
-func (s *Middle[IN, OUT]) SendTo(outputs ...Receiver[OUT]) {
-	s.outs = append(s.outs, outputs...)
+func (m *middle[IN, OUT]) SendTo(outputs ...Receiver[OUT]) {
+	m.outs = append(m.outs, outputs...)
 }
 
-func (m *Middle[IN, OUT]) OutType() reflect.Type {
-	return m.outType
-}
-
-func (m *Middle[IN, OUT]) InType() reflect.Type {
-	return m.inType
-}
-
-// Terminal is any node that receives data from another node and does not forward it to another node,
+// terminal is any node that receives data from another node and does not forward it to another node,
 // but can process it and send the results to outside the graph (e.g. memory, storage, web...)
-type Terminal[IN any] struct {
+type terminal[IN any] struct {
 	inputs  connect.Joiner[IN]
 	started bool
 	fun     TerminalFunc[IN]
 	done    chan struct{}
-	inType  reflect.Type
 }
 
-func (t *Terminal[IN]) joiners() []*connect.Joiner[IN] {
+func (t *terminal[IN]) joiners() []*connect.Joiner[IN] {
 	if t == nil {
 		return nil
 	}
 	return []*connect.Joiner[IN]{&t.inputs}
 }
 
-func (t *Terminal[IN]) isStarted() bool {
+func (t *terminal[IN]) isStarted() bool {
 	if t == nil {
 		return false
 	}
 	return t.started
 }
 
-// Done returns a channel that is closed when the Terminal node has ended its processing. This
-// is, when all its inputs have been also closed. Waiting for all the Terminal nodes to finish
+// Done returns a channel that is closed when the terminal node has ended its processing. This
+// is, when all its inputs have been also closed. Waiting for all the terminal nodes to finish
 // allows blocking the execution until all the data in the graph has been processed and all the
 // previous stages have ended
-func (t *Terminal[IN]) Done() <-chan struct{} {
+func (t *terminal[IN]) Done() <-chan struct{} {
 	if t == nil {
 		closed := make(chan struct{})
 		close(closed)
@@ -132,49 +116,43 @@ func (t *Terminal[IN]) Done() <-chan struct{} {
 	return t.done
 }
 
-func (m *Terminal[IN]) InType() reflect.Type {
-	return m.inType
-}
-
-// AsStart wraps a group of StartFunc with the same signature into a Start node.
-func AsStart[OUT any](funs ...StartFunc[OUT]) *Start[OUT] {
-	var out OUT
-	return &Start[OUT]{
-		funs: funs,
-		receiverGroup: receiverGroup[OUT]{
-			outType: reflect.TypeOf(out),
-		},
+// asStart wraps a group of StartFunc with the same signature into a start node.
+// TODO: let just 1 start function as argument
+func asStart[OUT any](fun StartFunc[OUT]) *start[OUT] {
+	if fun == nil {
+		return nil
+	}
+	return &start[OUT]{
+		fun:           fun,
+		receiverGroup: receiverGroup[OUT]{},
 	}
 }
 
-// AsMiddle wraps an MiddleFunc into an Middle node.
-func AsMiddle[IN, OUT any](fun MiddleFunc[IN, OUT], opts ...Option) *Middle[IN, OUT] {
-	var in IN
-	var out OUT
+// asMiddle wraps an MiddleFunc into an middle node.
+func asMiddle[IN, OUT any](fun MiddleFunc[IN, OUT], opts ...Option) *middle[IN, OUT] {
 	options := getOptions(opts...)
-	return &Middle[IN, OUT]{
-		inputs:  connect.NewJoiner[IN](options.channelBufferLen),
-		fun:     fun,
-		inType:  reflect.TypeOf(in),
-		outType: reflect.TypeOf(out),
+	return &middle[IN, OUT]{
+		inputs: connect.NewJoiner[IN](options.channelBufferLen),
+		fun:    fun,
 	}
 }
 
-// AsTerminal wraps a TerminalFunc into a Terminal node.
-func AsTerminal[IN any](fun TerminalFunc[IN], opts ...Option) *Terminal[IN] {
-	var i IN
+// asTerminal wraps a TerminalFunc into a terminal node.
+func asTerminal[IN any](fun TerminalFunc[IN], opts ...Option) *terminal[IN] {
+	if fun == nil {
+		return nil
+	}
 	options := getOptions(opts...)
-	return &Terminal[IN]{
+	return &terminal[IN]{
 		inputs: connect.NewJoiner[IN](options.channelBufferLen),
 		fun:    fun,
 		done:   make(chan struct{}),
-		inType: reflect.TypeOf(i),
 	}
 }
 
-// Start starts the function wrapped in the Start node. This method should be invoked
+// start starts the function wrapped in the start node. This method should be invoked
 // for all the start nodes of the same graph, so the graph can properly start and finish.
-func (i *Start[OUT]) Start() {
+func (i *start[OUT]) Start() {
 	// a nil start node can be started without no effect on the graph.
 	// this allows setting optional nillable start nodes and let start all of them
 	// as a group in a more convenient way
@@ -183,24 +161,22 @@ func (i *Start[OUT]) Start() {
 	}
 	forker, err := i.receiverGroup.StartReceivers()
 	if err != nil {
-		panic("Start: " + err.Error())
+		panic("start: " + err.Error())
 	}
-	for fn := range i.funs {
-		fun := i.funs[fn]
-		go func() {
-			fun(forker.AcquireSender())
-			forker.ReleaseSender()
-		}()
-	}
+
+	go func() {
+		i.fun(forker.AcquireSender())
+		forker.ReleaseSender()
+	}()
 }
 
-func (i *Middle[IN, OUT]) start() {
-	if len(i.outs) == 0 {
-		panic("Middle node should have outputs")
+func (m *middle[IN, OUT]) start() {
+	if len(m.outs) == 0 {
+		panic("middle node should have outputs")
 	}
-	i.started = true
-	joiners := make([]*connect.Joiner[OUT], 0, len(i.outs))
-	for _, out := range i.outs {
+	m.started = true
+	joiners := make([]*connect.Joiner[OUT], 0, len(m.outs))
+	for _, out := range m.outs {
 		joiners = append(joiners, out.joiners()...)
 		if !out.isStarted() {
 			out.start()
@@ -208,12 +184,12 @@ func (i *Middle[IN, OUT]) start() {
 	}
 	forker := connect.Fork(joiners...)
 	go func() {
-		i.fun(i.inputs.Receiver(), forker.AcquireSender())
+		m.fun(m.inputs.Receiver(), forker.AcquireSender())
 		forker.ReleaseSender()
 	}()
 }
 
-func (t *Terminal[IN]) start() {
+func (t *terminal[IN]) start() {
 	if t == nil {
 		return
 	}
@@ -235,12 +211,11 @@ func getOptions(opts ...Option) creationOptions {
 // receiverGroup connects a sender node with a collection
 // of Receiver nodes through a common connect.Forker instance.
 type receiverGroup[OUT any] struct {
-	Outs    []Receiver[OUT]
-	outType reflect.Type
+	Outs []Receiver[OUT]
 }
 
 // SendTo connects a group of receivers to the current receiverGroup
-func (s *Start[OUT]) SendTo(outputs ...Receiver[OUT]) {
+func (s *start[OUT]) SendTo(outputs ...Receiver[OUT]) {
 	// a nil start node can be operated without no effect on the graph.
 	// this allows connecting optional nillable start nodes and let start all of them
 	// as a group in a more convenient way
@@ -251,12 +226,6 @@ func (s *Start[OUT]) SendTo(outputs ...Receiver[OUT]) {
 
 func (s *receiverGroup[OUT]) SendTo(outputs ...Receiver[OUT]) {
 	s.Outs = append(s.Outs, outputs...)
-}
-
-// OutType is the common input type of the receivers
-// (output of the receiver group)
-func (s *receiverGroup[OUT]) OutType() reflect.Type {
-	return s.outType
 }
 
 // StartReceivers start the receivers and return a connection

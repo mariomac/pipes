@@ -1,28 +1,30 @@
-package node
+package node_test
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/mariomac/pipes/pkg/node"
 	helpers "github.com/mariomac/pipes/pkg/test"
 )
 
 const timeout = 2 * time.Second
 
 func TestBasicGraph(t *testing.T) {
-	start1 := AsStart(Counter(1, 3))
-	start2 := AsStart(Counter(6, 8))
-	odds := AsMiddle(OddFilter)
-	evens := AsMiddle(EvenFilter)
-	oddsMsg := AsMiddle(Messager("odd"))
-	evensMsg := AsMiddle(Messager("even"))
+	p := node.NewPipe()
+
+	start1 := node.AddStart(p, Counter(1, 3))
+	start2 := node.AddStart(p, Counter(6, 8))
+	odds := node.AddMiddle(p, OddFilter)
+	evens := node.AddMiddle(p, EvenFilter)
+	oddsMsg := node.AddMiddle(p, Messager("odd"))
+	evensMsg := node.AddMiddle(p, Messager("even"))
 	collected := map[string]struct{}{}
-	collector := AsTerminal(func(strs <-chan string) {
+	collector := node.AddTerminal(p, func(strs <-chan string) {
 		for str := range strs {
 			collected[str] = struct{}{}
 		}
@@ -43,10 +45,10 @@ func TestBasicGraph(t *testing.T) {
 	oddsMsg.SendTo(collector)
 	evensMsg.SendTo(collector)
 
-	StartAll(start1, start2)
+	p.Start()
 
 	select {
-	case <-collector.Done():
+	case <-p.Done():
 	// ok!
 	case <-time.After(timeout):
 		require.Fail(t, "timeout while waiting for pipeline to complete")
@@ -62,53 +64,31 @@ func TestBasicGraph(t *testing.T) {
 	}, collected)
 }
 
-func TestTypeCapture(t *testing.T) {
-	type testType struct {
-		foo string
-	}
-
-	start1 := AsStart(Counter(1, 3))
-	odds := AsMiddle(OddFilter)
-	oddsMsg := AsMiddle(Messager("odd"))
-	collector := AsTerminal(func(strs <-chan string) {})
-	testColl := AsMiddle(func(in <-chan testType, out chan<- []string) {})
-
-	// assert that init/output types have been properly collected
-	intType := reflect.TypeOf(1)
-	stringType := reflect.TypeOf("")
-	assert.Equal(t, intType, start1.OutType())
-	assert.Equal(t, intType, odds.InType())
-	assert.Equal(t, intType, odds.OutType())
-	assert.Equal(t, intType, oddsMsg.InType())
-	assert.Equal(t, stringType, oddsMsg.OutType())
-	assert.Equal(t, stringType, collector.InType())
-	assert.Equal(t, reflect.TypeOf(testType{foo: ""}), testColl.InType())
-	assert.Equal(t, reflect.TypeOf([]string{}), testColl.OutType())
-}
-
 func TestConfigurationOptions_UnbufferedChannelCommunication(t *testing.T) {
+	p := node.NewPipe()
+
 	graphIn, graphOut := make(chan int), make(chan int)
 	unblockReads := make(chan struct{})
 	endStart, endMiddle, endTerm := make(chan struct{}), make(chan struct{}), make(chan struct{})
-	init := AsStart(func(out chan<- int) {
+	init := node.AddStart(p, func(out chan<- int) {
 		n := <-graphIn
 		out <- n
 		close(endStart)
 	})
-	middle := AsMiddle(func(in <-chan int, out chan<- int) {
+	middle := node.AddMiddle(p, func(in <-chan int, out chan<- int) {
 		<-unblockReads
 		n := <-in
 		out <- n
 		close(endMiddle)
 	})
-	term := AsTerminal(func(in <-chan int) {
+	term := node.AddTerminal(p, func(in <-chan int) {
 		n := <-in
 		graphOut <- n
 		close(endTerm)
 	})
 	init.SendTo(middle)
 	middle.SendTo(term)
-	init.Start()
+	p.Start()
 
 	graphIn <- 123
 	// Since the nodes are unbuffered, they are blocked and can't accept/process data until
@@ -153,26 +133,28 @@ func TestConfigurationOptions_UnbufferedChannelCommunication(t *testing.T) {
 }
 
 func TestConfigurationOptions_BufferedChannelCommunication(t *testing.T) {
+	p := node.NewPipe()
+
 	graphIn, graphOut := make(chan int), make(chan int)
 	endStart, endMiddle, endTerm := make(chan struct{}), make(chan struct{}), make(chan struct{})
-	init := AsStart(func(out chan<- int) {
+	init := node.AddStart(p, func(out chan<- int) {
 		n := <-graphIn
 		out <- n
 		close(endStart)
 	})
-	middle := AsMiddle(func(in <-chan int, out chan<- int) {
+	middle := node.AddMiddle(p, func(in <-chan int, out chan<- int) {
 		n := <-in
 		out <- n
 		close(endMiddle)
-	}, ChannelBufferLen(1))
-	term := AsTerminal(func(in <-chan int) {
+	}, node.ChannelBufferLen(1))
+	term := node.AddTerminal(p, func(in <-chan int) {
 		n := <-in
 		graphOut <- n
 		close(endTerm)
-	}, ChannelBufferLen(1))
+	}, node.ChannelBufferLen(1))
 	init.SendTo(middle)
 	middle.SendTo(term)
-	init.Start()
+	p.Start()
 
 	graphIn <- 123
 	// Since the nodes are buffered, they can keep accepting/processing data even if the last
@@ -209,11 +191,12 @@ func TestConfigurationOptions_BufferedChannelCommunication(t *testing.T) {
 }
 
 func TestNilNodes(t *testing.T) {
-	var nilStart *Start[int]
-	start := AsStart(Counter(1, 3))
+	p := node.NewPipe()
+	nilStart := node.AddStart[int](p, nil)
+	start := node.AddStart(p, Counter(1, 3))
 	var collected []int
-	var nilTerminal *Terminal[int]
-	collector := AsTerminal(func(ints <-chan int) {
+	nilTerminal := node.AddTerminal[int](p, nil)
+	collector := node.AddTerminal(p, func(ints <-chan int) {
 		for i := range ints {
 			collected = append(collected, i)
 		}
@@ -222,60 +205,13 @@ func TestNilNodes(t *testing.T) {
 	assert.NotPanics(t, func() {
 		start.SendTo(collector, nilTerminal)
 		nilStart.SendTo(collector, nilTerminal)
-		StartAll(start, nilStart)
+		p.Start()
 
-		helpers.ReadChannel(t, DoneAll(collector, nilTerminal), timeout)
+		helpers.ReadChannel(t, p.Done(), timeout)
 	})
 }
 
-func TestMultiNodes(t *testing.T) {
-	// Like testBasicGraph but grouping multi-function nodes
-	starts := AsStart(Counter(1, 3), Counter(6, 8))
-	odds := AsMiddle(OddFilter)
-	evens := AsMiddle(EvenFilter)
-	oddsMsg := AsMiddle(Messager("odd"))
-	evensMsg := AsMiddle(Messager("even"))
-	collected := map[string]struct{}{}
-	collector := AsTerminal(func(strs <-chan string) {
-		for str := range strs {
-			collected[str] = struct{}{}
-		}
-	})
-	/*
-		start1----\ /---start2
-		  |       X      |
-		evens<---/ \-->odds
-		  |              |
-		evensMsg      oddsMsg
-		       \      /
-		        printer
-	*/
-	starts.SendTo(evens, odds)
-	odds.SendTo(oddsMsg)
-	evens.SendTo(evensMsg)
-	oddsMsg.SendTo(collector)
-	evensMsg.SendTo(collector)
-
-	starts.Start()
-
-	select {
-	case <-collector.Done():
-	// ok!
-	case <-time.After(timeout):
-		require.Fail(t, "timeout while waiting for pipeline to complete")
-	}
-
-	assert.Equal(t, map[string]struct{}{
-		"odd: 1":  {},
-		"even: 2": {},
-		"odd: 3":  {},
-		"even: 6": {},
-		"odd: 7":  {},
-		"even: 8": {},
-	}, collected)
-}
-
-func Counter(from, to int) StartFunc[int] {
+func Counter(from, to int) node.StartFunc[int] {
 	return func(out chan<- int) {
 		for i := from; i <= to; i++ {
 			out <- i

@@ -53,8 +53,8 @@ func DiscardedPrinter(in <-chan int) {
 func main() {
 	generator := node.AsStartDemux(Generator)
 	primeFilter := node.AsMiddleDemux(PrimeFilter)
-	primePrinter := node.AsTerminal(PrimePrinter)
-	discardPrinter := node.AsTerminal(DiscardedPrinter)
+	primePrinter := node.asTerminal(PrimePrinter)
+	discardPrinter := node.asTerminal(DiscardedPrinter)
 	node.DemuxAdd[int](generator, "nonPositive").SendTo(discardPrinter)
 	node.DemuxAdd[int](generator, "positive").SendTo(primeFilter)
 	node.DemuxAdd[int](primeFilter, "primes").SendTo(primePrinter)

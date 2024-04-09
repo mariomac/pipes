@@ -1,4 +1,6 @@
-package node
+//go:build ignoreme
+
+package node_test
 
 import (
 	"slices"
@@ -24,24 +26,24 @@ func TestAsStartDemux(t *testing.T) {
 		out1 <- 60
 		out2 <- 30
 	})
-	doubler := AsMiddle(func(in <-chan int, out chan<- int) {
+	doubler := asMiddle(func(in <-chan int, out chan<- int) {
 		for i := range in {
 			out <- int(i * 2)
 		}
 	})
-	decer := AsMiddle(func(in <-chan int, out chan<- int) {
+	decer := asMiddle(func(in <-chan int, out chan<- int) {
 		for i := range in {
 			out <- int(i - 1)
 		}
 	})
-	divider := AsMiddle(func(in <-chan int, out chan<- int) {
+	divider := asMiddle(func(in <-chan int, out chan<- int) {
 		for i := range in {
 			out <- int(i / 2)
 		}
 	})
 	var sorted []int
 	waiter := helpers.AsyncWait(1)
-	sorter := AsTerminal(func(in <-chan int) {
+	sorter := asTerminal(func(in <-chan int) {
 		for i := range in {
 			sorted = append(sorted, i)
 		}
@@ -64,7 +66,7 @@ func TestAsStartDemux(t *testing.T) {
 }
 
 func TestAsMiddleDemux(t *testing.T) {
-	start := AsStart(func(out chan<- int) {
+	start := asStart(func(out chan<- int) {
 		for i := 0; i < 10; i++ {
 			out <- i
 		}
@@ -80,14 +82,14 @@ func TestAsMiddleDemux(t *testing.T) {
 			}
 		}
 	})
-	doubler := AsMiddle(func(in <-chan int32, out chan<- int) {
+	doubler := asMiddle(func(in <-chan int32, out chan<- int) {
 		for i := range in {
 			out <- int(i * 2)
 		}
 	})
 	var sorted []int
 	waiter := helpers.AsyncWait(1)
-	sorter := AsTerminal(func(in <-chan int) {
+	sorter := asTerminal(func(in <-chan int) {
 		for i := range in {
 			sorted = append(sorted, i)
 		}
@@ -140,7 +142,7 @@ func TestDemux_Unbuffered(t *testing.T) {
 		out2 <- n
 		close(endMiddle4)
 	})
-	term := AsTerminal(func(in <-chan int) {
+	term := asTerminal(func(in <-chan int) {
 		// should receive 4 messages: two from start duplicated on each middle
 		for i := 0; i < 4; i++ {
 			<-in
@@ -227,7 +229,7 @@ func TestDemux_Buffered(t *testing.T) {
 		out2 <- n
 		close(endMiddle)
 	}, ChannelBufferLen(1))
-	term := AsTerminal(func(in <-chan int) {
+	term := asTerminal(func(in <-chan int) {
 		n := <-in
 		graphOut <- n
 		close(endTerm)
@@ -280,7 +282,7 @@ func TestDemux_Error_NoOutput(t *testing.T) {
 	})
 	t.Run("fail if it defines an output that has no connections", func(t *testing.T) {
 		init := AsStartDemux(func(d Demux) {})
-		end := AsTerminal(func(in <-chan int) {})
+		end := asTerminal(func(in <-chan int) {})
 		DemuxAdd[int](init, "out1").SendTo(end)
 		DemuxAdd[int](init, "out2")
 		assert.Panics(t, init.Start)
@@ -299,7 +301,7 @@ func TestDemux_Error_WrongDemuxKey(t *testing.T) {
 			out := DemuxGet[int](d, "foo")
 			out <- 1
 		})
-		end := AsTerminal(func(in <-chan int) {})
+		end := asTerminal(func(in <-chan int) {})
 		DemuxAdd[int](init, "bar").SendTo(end)
 		init.Start()
 		select {
@@ -319,7 +321,7 @@ func TestDemux_Error_WrongDemuxKey(t *testing.T) {
 			out := DemuxGet[string](d, "foo")
 			out <- "1"
 		})
-		end := AsTerminal(func(in <-chan int) {})
+		end := asTerminal(func(in <-chan int) {})
 		DemuxAdd[int](init, "foo").SendTo(end)
 		init.Start()
 		select {

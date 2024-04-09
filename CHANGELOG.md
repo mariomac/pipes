@@ -5,6 +5,10 @@
 * Added `node.StartAll` and `node.DoneAll` convenience types
 * With the additions in this version, the high-level graph API is deprecated.
 * Added public `node.SenderReceiver` interface.
+* Allow nillable Start and Terminal nodes
+* TODO: pipe wrapper to let e.g. instantiating all the nodes with default features and not needing
+  startall and doneall
+* TODO: move all to root "pipe" package
 
 # v0.9.0
 

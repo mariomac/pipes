@@ -56,10 +56,10 @@ func Earliest() node.TerminalFunc[time.Time] {
 
 func main() {
 	// instantiating all the nodes
-	s1 := node.AsStart(Ticker(3))
-	s2 := node.AsStart(FamousDates())
-	t1 := node.AsTerminal(Printer())
-	t2 := node.AsTerminal(Earliest())
+	s1 := node.asStart(Ticker(3))
+	s2 := node.asStart(FamousDates())
+	t1 := node.asTerminal(Printer())
+	t2 := node.asTerminal(Earliest())
 
 	// connecting nodes
 	s1.SendTo(t1, t2)

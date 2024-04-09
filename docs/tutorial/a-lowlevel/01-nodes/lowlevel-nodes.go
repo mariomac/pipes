@@ -61,9 +61,9 @@ func main() {
 			"but bye")
 
 	// Instantiation
-	start := node.AsStart(LineReader(inputText))
-	middle := node.AsMiddle(WordFilter("hello"))
-	terminal := node.AsTerminal(LineWriter(os.Stdout))
+	start := node.asStart(LineReader(inputText))
+	middle := node.asMiddle(WordFilter("hello"))
+	terminal := node.asTerminal(LineWriter(os.Stdout))
 
 	// Connection
 	start.SendTo(middle)
