@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/mariomac/pipe"
+	"github.com/mariomac/pipes/pipe"
 
 	helpers "github.com/mariomac/pipes/testers"
 )
@@ -18,7 +18,7 @@ const timeout = 2 * time.Second
 func TestBasicGraph(t *testing.T) {
 	p := pipe.NewPipe()
 
-	start1 := pipe.AddStart(p, Counter(1, 3))
+	start1 := pipe.pipe.AddStart(p, Counter(1, 3))
 	start2 := pipe.AddStart(p, Counter(6, 8))
 	odds := pipe.AddMiddle(p, OddFilter)
 	evens := pipe.AddMiddle(p, EvenFilter)

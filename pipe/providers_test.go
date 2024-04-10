@@ -1,7 +1,7 @@
 package pipe_test
 
 import (
-	"github.com/mariomac/pipe"
+	"github.com/mariomac/pipes/pipe"
 )
 
 type sampleNm struct {

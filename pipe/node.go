@@ -8,7 +8,7 @@ package pipe
 import (
 	"errors"
 
-	"github.com/mariomac/pipes/internal/connect"
+	"github.com/mariomac/pipes/pipe/internal/connect"
 )
 
 // StartFunc is a function that receives a writable channel as unique argument, and sends

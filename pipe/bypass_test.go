@@ -5,14 +5,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/mariomac/pipe"
-	"github.com/mariomac/pipe/testers"
+	"github.com/mariomac/pipes/pipe"
+	"github.com/mariomac/pipes/testers"
 )
 
 func TestBypass_Single(t *testing.T) {
 	// TODO: pipe.New()
 	p := pipe.NewPipe()
-	start := pipe.AddStart(p, func(out chan<- int) {
+	start := pipe.pipe.AddStart(p, func(out chan<- int) {
 		out <- 1
 		out <- 2
 		out <- 3
