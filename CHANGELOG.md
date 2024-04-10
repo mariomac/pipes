@@ -9,6 +9,7 @@
 * TODO: pipe wrapper to let e.g. instantiating all the nodes with default features and not needing
   startall and doneall
 * TODO: move all to root "pipe" package
+* TODO: test that incomplete graphs (no start or no terms) fail to start, including bypassed start/term nodes
 
 # v0.9.0
 
