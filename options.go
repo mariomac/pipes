@@ -1,4 +1,4 @@
-package node
+package pipe
 
 type creationOptions struct {
 	// if 0, channel is unbuffered

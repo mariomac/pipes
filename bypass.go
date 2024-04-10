@@ -1,8 +1,6 @@
-package node
+package pipe
 
-import (
-	"github.com/mariomac/pipes/pkg/node/internal/connect"
-)
+import "github.com/mariomac/pipe/internal/connect"
 
 // IgnoreStart is a convenience function to explicitly specify that the returned StartFunc
 // is going to be ignored/bypassed by the pipes library

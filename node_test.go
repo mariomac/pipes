@@ -1,4 +1,4 @@
-package node_test
+package pipe_test
 
 import (
 	"fmt"
@@ -8,23 +8,24 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/mariomac/pipes/pkg/node"
-	helpers "github.com/mariomac/pipes/pkg/test"
+	"github.com/mariomac/pipe"
+
+	helpers "github.com/mariomac/pipes/testers"
 )
 
 const timeout = 2 * time.Second
 
 func TestBasicGraph(t *testing.T) {
-	p := node.NewPipe()
+	p := pipe.NewPipe()
 
-	start1 := node.AddStart(p, Counter(1, 3))
-	start2 := node.AddStart(p, Counter(6, 8))
-	odds := node.AddMiddle(p, OddFilter)
-	evens := node.AddMiddle(p, EvenFilter)
-	oddsMsg := node.AddMiddle(p, Messager("odd"))
-	evensMsg := node.AddMiddle(p, Messager("even"))
+	start1 := pipe.AddStart(p, Counter(1, 3))
+	start2 := pipe.AddStart(p, Counter(6, 8))
+	odds := pipe.AddMiddle(p, OddFilter)
+	evens := pipe.AddMiddle(p, EvenFilter)
+	oddsMsg := pipe.AddMiddle(p, Messager("odd"))
+	evensMsg := pipe.AddMiddle(p, Messager("even"))
 	collected := map[string]struct{}{}
-	collector := node.AddTerminal(p, func(strs <-chan string) {
+	collector := pipe.AddTerminal(p, func(strs <-chan string) {
 		for str := range strs {
 			collected[str] = struct{}{}
 		}
@@ -65,23 +66,23 @@ func TestBasicGraph(t *testing.T) {
 }
 
 func TestConfigurationOptions_UnbufferedChannelCommunication(t *testing.T) {
-	p := node.NewPipe()
+	p := pipe.NewPipe()
 
 	graphIn, graphOut := make(chan int), make(chan int)
 	unblockReads := make(chan struct{})
 	endStart, endMiddle, endTerm := make(chan struct{}), make(chan struct{}), make(chan struct{})
-	init := node.AddStart(p, func(out chan<- int) {
+	init := pipe.AddStart(p, func(out chan<- int) {
 		n := <-graphIn
 		out <- n
 		close(endStart)
 	})
-	middle := node.AddMiddle(p, func(in <-chan int, out chan<- int) {
+	middle := pipe.AddMiddle(p, func(in <-chan int, out chan<- int) {
 		<-unblockReads
 		n := <-in
 		out <- n
 		close(endMiddle)
 	})
-	term := node.AddTerminal(p, func(in <-chan int) {
+	term := pipe.AddTerminal(p, func(in <-chan int) {
 		n := <-in
 		graphOut <- n
 		close(endTerm)
@@ -133,25 +134,25 @@ func TestConfigurationOptions_UnbufferedChannelCommunication(t *testing.T) {
 }
 
 func TestConfigurationOptions_BufferedChannelCommunication(t *testing.T) {
-	p := node.NewPipe()
+	p := pipe.NewPipe()
 
 	graphIn, graphOut := make(chan int), make(chan int)
 	endStart, endMiddle, endTerm := make(chan struct{}), make(chan struct{}), make(chan struct{})
-	init := node.AddStart(p, func(out chan<- int) {
+	init := pipe.AddStart(p, func(out chan<- int) {
 		n := <-graphIn
 		out <- n
 		close(endStart)
 	})
-	middle := node.AddMiddle(p, func(in <-chan int, out chan<- int) {
+	middle := pipe.AddMiddle(p, func(in <-chan int, out chan<- int) {
 		n := <-in
 		out <- n
 		close(endMiddle)
-	}, node.ChannelBufferLen(1))
-	term := node.AddTerminal(p, func(in <-chan int) {
+	}, pipe.ChannelBufferLen(1))
+	term := pipe.AddTerminal(p, func(in <-chan int) {
 		n := <-in
 		graphOut <- n
 		close(endTerm)
-	}, node.ChannelBufferLen(1))
+	}, pipe.ChannelBufferLen(1))
 	init.SendTo(middle)
 	middle.SendTo(term)
 	p.Start()
@@ -191,12 +192,12 @@ func TestConfigurationOptions_BufferedChannelCommunication(t *testing.T) {
 }
 
 func TestNilNodes(t *testing.T) {
-	p := node.NewPipe()
-	nilStart := node.AddStart[int](p, nil)
-	start := node.AddStart(p, Counter(1, 3))
+	p := pipe.NewPipe()
+	nilStart := pipe.AddStart[int](p, nil)
+	start := pipe.AddStart(p, Counter(1, 3))
 	var collected []int
-	nilTerminal := node.AddTerminal[int](p, nil)
-	collector := node.AddTerminal(p, func(ints <-chan int) {
+	nilTerminal := pipe.AddTerminal[int](p, nil)
+	collector := pipe.AddTerminal(p, func(ints <-chan int) {
 		for i := range ints {
 			collected = append(collected, i)
 		}
@@ -211,7 +212,7 @@ func TestNilNodes(t *testing.T) {
 	})
 }
 
-func Counter(from, to int) node.StartFunc[int] {
+func Counter(from, to int) pipe.StartFunc[int] {
 	return func(out chan<- int) {
 		for i := from; i <= to; i++ {
 			out <- i

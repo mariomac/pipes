@@ -1,4 +1,4 @@
-module github.com/mariomac/pipes
+module github.com/mariomac/pipe
 
 go 1.18
 

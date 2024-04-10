@@ -3,12 +3,12 @@
 // A node can send data to multiple nodes, and receive data from multiple nodes.
 //
 //nolint:unused
-package node
+package pipe
 
 import (
 	"errors"
 
-	"github.com/mariomac/pipes/pkg/node/internal/connect"
+	"github.com/mariomac/pipes/internal/connect"
 )
 
 // StartFunc is a function that receives a writable channel as unique argument, and sends

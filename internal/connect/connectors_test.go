@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	helpers "github.com/mariomac/pipes/pkg/test"
+	helpers "github.com/mariomac/pipes/testers"
 )
 
 const timeout = 2 * time.Second
