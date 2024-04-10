@@ -4,14 +4,20 @@ import (
 	"github.com/mariomac/pipes/pkg/node/internal/connect"
 )
 
+// IgnoreStart is a convenience function to explicitly specify that the returned StartFunc
+// is going to be ignored/bypassed by the pipes library
 func IgnoreStart[OUT any]() StartFunc[OUT] {
 	return nil
 }
 
-func IgnoreMid[INOUT any]() MidFunc[INOUT, INOUT] {
+// BypassMid is a convenience function to explicitly specify that the returned MidFunc
+// is going to be ignored/bypassed by the pipes library
+func BypassMid[INOUT any]() MidFunc[INOUT, INOUT] {
 	return nil
 }
 
+// IgnoreEnd is a convenience function to explicitly specify that the returned EndFunc
+// // is going to be ignored/bypassed by the pipes library
 func IgnoreEnd[IN any]() EndFunc[IN] {
 	return nil
 }
@@ -26,6 +32,7 @@ func IgnoreEnd[IN any]() EndFunc[IN] {
 // bypass is useful for implementing constructors that might return an optional middle[T, T] node
 // (according to e.g. the user configuration) or just a bypass[T] node to transparently
 // forward data to the destination nodes.
+// TODO: merge with middle node?
 type bypass[INOUT any] struct {
 	outs []End[INOUT]
 }

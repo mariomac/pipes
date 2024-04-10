@@ -1,5 +1,10 @@
 package node
 
+import (
+	"fmt"
+	"reflect"
+)
+
 type startable interface {
 	Start()
 }
@@ -8,11 +13,16 @@ type doneable interface {
 	Done() <-chan struct{}
 }
 
+// TODO: split Pipe and PipeBuilder
 type Pipe[IMPL NodesMap] struct {
 	nodesMap      IMPL
 	opts          []Option
 	startNodes    []startable
 	terminalNodes []doneable
+
+	startProviders []reflectProvider
+	midProviders   []reflectProvider
+	endProviders   []reflectProvider
 }
 
 func NewPipe[IMPL NodesMap](nodesMap IMPL, defaultOpts ...Option) *Pipe[IMPL] {
@@ -43,4 +53,27 @@ func (p *Pipe[IMPL]) Done() <-chan struct{} {
 	return done
 }
 
-//func AddStart
+// reflected providers
+type reflectProvider struct {
+	// TODO: bypass field?
+	asNode      reflect.Value
+	fieldGetter reflect.Value
+	fn          reflect.Value
+}
+
+func (rp *reflectProvider) call(nodesMap interface{}) error {
+	// nodeFn, err := Provider()
+	res := rp.fn.Call(nil)
+	nodeFn, err := res[0], res[1]
+	if !err.IsNil() {
+		return fmt.Errorf("error invoking start provider: %w", err.Interface())
+	}
+	// fieldPtr = fieldGetter(nodesMap)
+	fieldPtr := rp.fieldGetter.Call([]reflect.Value{reflect.ValueOf(nodesMap)})[0]
+
+	// *fieldPtr = AsNode(nodeFn)
+	fieldPtr.Elem().Set(
+		rp.asNode.Call([]reflect.Value{nodeFn})[0],
+	)
+	return nil
+}

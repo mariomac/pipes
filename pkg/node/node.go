@@ -40,8 +40,8 @@ type End[IN any] interface {
 	joiners() []*connect.Joiner[IN]
 }
 
-// Middle is any node that can both send and receive data: node.bypass or node.middle.
-type Middle[IN, OUT any] interface {
+// Mid is any node that can both send and receive data: node.bypass or node.middle.
+type Mid[IN, OUT any] interface {
 	End[IN]
 	Start[OUT]
 }

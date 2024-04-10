@@ -6,7 +6,7 @@ import (
 
 type sampleNm struct {
 	start  node.Start[int]
-	middle node.Middle[int, int]
+	middle node.Mid[int, int]
 	end    node.End[int]
 }
 
@@ -19,7 +19,7 @@ func startNode(s *sampleNm) *node.Start[int] {
 	return &s.start
 }
 
-func middleNode(s *sampleNm) *node.Middle[int, int] {
+func middleNode(s *sampleNm) *node.Mid[int, int] {
 	return &s.middle
 }
 
@@ -34,7 +34,7 @@ func example() {
 	})
 
 	node.AddMidProvider(p, middleNode, func() (node.MidFunc[int, int], error) {
-		return node.IgnoreMid[int](), nil
+		return node.BypassMid[int](), nil
 	})
 
 }
