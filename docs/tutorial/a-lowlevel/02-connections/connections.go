@@ -18,7 +18,7 @@ func Counter(from, to int) node.StartFunc[int] {
 
 // Multiplier multiplies by a factor and forwards the numbers
 // received by its input channel.
-func Multiplier(factor int) node.MiddleFunc[int, int] {
+func Multiplier(factor int) node.MidFunc[int, int] {
 	return func(in <-chan int, out chan<- int) {
 		for n := range in {
 			out <- n * factor
@@ -27,7 +27,7 @@ func Multiplier(factor int) node.MiddleFunc[int, int] {
 }
 
 // Printer just prints by the standard output each received number.
-func Printer() node.TerminalFunc[int] {
+func Printer() node.EndFunc[int] {
 	return func(in <-chan int) {
 		for n := range in {
 			fmt.Println(n)

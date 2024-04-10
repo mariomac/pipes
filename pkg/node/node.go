@@ -15,23 +15,23 @@ import (
 // value to that channel during an indefinite amount of time.
 type StartFunc[OUT any] func(out chan<- OUT)
 
-// MiddleFunc is a function that receives a readable channel as first argument,
+// MidFunc is a function that receives a readable channel as first argument,
 // and a writable channel as second argument.
 // It must process the inputs from the input channel until it's closed.
-type MiddleFunc[IN, OUT any] func(in <-chan IN, out chan<- OUT)
+type MidFunc[IN, OUT any] func(in <-chan IN, out chan<- OUT)
 
-// TerminalFunc is a function that receives a readable channel as unique argument.
+// EndFunc is a function that receives a readable channel as unique argument.
 // It must process the inputs from the input channel until it's closed.
-type TerminalFunc[IN any] func(in <-chan IN)
+type EndFunc[IN any] func(in <-chan IN)
 
-// Sender is any node that can send data to another node: node.start, node.middle and node.bypass
-type Sender[OUT any] interface {
+// Start is any node that can send data to another node: node.start, node.middle and node.bypass
+type Start[OUT any] interface {
 	// SendTo connect a sender with a group of receivers
-	SendTo(r ...Receiver[OUT])
+	SendTo(r ...End[OUT])
 }
 
-// Receiver is any node that can receive data from another node: node.bypass, node.middle and node.terminal
-type Receiver[IN any] interface {
+// End is any node that can receive data from another node: node.bypass, node.middle and node.terminal
+type End[IN any] interface {
 	isStarted() bool
 	start()
 	// joiners will usually return only one joiner instance but in
@@ -40,10 +40,10 @@ type Receiver[IN any] interface {
 	joiners() []*connect.Joiner[IN]
 }
 
-// SenderReceiver is any node that can both send and receive data: node.bypass or node.middle.
-type SenderReceiver[IN, OUT any] interface {
-	Receiver[IN]
-	Sender[OUT]
+// Middle is any node that can both send and receive data: node.bypass or node.middle.
+type Middle[IN, OUT any] interface {
+	End[IN]
+	Start[OUT]
 }
 
 // start nodes are the starting points of a pipeline. This is, all the nodes that bring information
@@ -60,10 +60,10 @@ type start[OUT any] struct {
 // and forwards the data to another node.
 // An middle node must have at least one output node.
 type middle[IN, OUT any] struct {
-	outs    []Receiver[OUT]
+	outs    []End[OUT]
 	inputs  connect.Joiner[IN]
 	started bool
-	fun     MiddleFunc[IN, OUT]
+	fun     MidFunc[IN, OUT]
 }
 
 func (m *middle[IN, OUT]) joiners() []*connect.Joiner[IN] {
@@ -74,7 +74,7 @@ func (m *middle[IN, OUT]) isStarted() bool {
 	return m.started
 }
 
-func (m *middle[IN, OUT]) SendTo(outputs ...Receiver[OUT]) {
+func (m *middle[IN, OUT]) SendTo(outputs ...End[OUT]) {
 	m.outs = append(m.outs, outputs...)
 }
 
@@ -83,7 +83,7 @@ func (m *middle[IN, OUT]) SendTo(outputs ...Receiver[OUT]) {
 type terminal[IN any] struct {
 	inputs  connect.Joiner[IN]
 	started bool
-	fun     TerminalFunc[IN]
+	fun     EndFunc[IN]
 	done    chan struct{}
 }
 
@@ -126,8 +126,8 @@ func asStart[OUT any](fun StartFunc[OUT]) *start[OUT] {
 	}
 }
 
-// asMiddle wraps an MiddleFunc into an middle node.
-func asMiddle[IN, OUT any](fun MiddleFunc[IN, OUT], opts ...Option) *middle[IN, OUT] {
+// asMiddle wraps an MidFunc into an middle node.
+func asMiddle[IN, OUT any](fun MidFunc[IN, OUT], opts ...Option) *middle[IN, OUT] {
 	options := getOptions(opts...)
 	return &middle[IN, OUT]{
 		inputs: connect.NewJoiner[IN](options.channelBufferLen),
@@ -135,8 +135,8 @@ func asMiddle[IN, OUT any](fun MiddleFunc[IN, OUT], opts ...Option) *middle[IN, 
 	}
 }
 
-// asTerminal wraps a TerminalFunc into a terminal node.
-func asTerminal[IN any](fun TerminalFunc[IN], opts ...Option) *terminal[IN] {
+// asTerminal wraps a EndFunc into a terminal node.
+func asTerminal[IN any](fun EndFunc[IN], opts ...Option) *terminal[IN] {
 	if fun == nil {
 		return nil
 	}
@@ -207,13 +207,13 @@ func getOptions(opts ...Option) creationOptions {
 }
 
 // receiverGroup connects a sender node with a collection
-// of Receiver nodes through a common connect.Forker instance.
+// of End nodes through a common connect.Forker instance.
 type receiverGroup[OUT any] struct {
-	Outs []Receiver[OUT]
+	Outs []End[OUT]
 }
 
 // SendTo connects a group of receivers to the current receiverGroup
-func (s *start[OUT]) SendTo(outputs ...Receiver[OUT]) {
+func (s *start[OUT]) SendTo(outputs ...End[OUT]) {
 	// a nil start node can be operated without no effect on the pipeline.
 	// this allows connecting optional nillable start nodes and let start all of them
 	// as a group in a more convenient way
@@ -222,7 +222,7 @@ func (s *start[OUT]) SendTo(outputs ...Receiver[OUT]) {
 	}
 }
 
-func (s *receiverGroup[OUT]) SendTo(outputs ...Receiver[OUT]) {
+func (s *receiverGroup[OUT]) SendTo(outputs ...End[OUT]) {
 	s.Outs = append(s.Outs, outputs...)
 }
 

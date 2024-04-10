@@ -27,10 +27,10 @@ func LineReader(input io.Reader) node.StartFunc[string] {
 	}
 }
 
-// WordFilter returns a node.MiddleFunc[string, string] that will read
+// WordFilter returns a node.MidFunc[string, string] that will read
 // each text line from the input channel and will forward to the output
 // channel the lines that contain the match argument as a substring.
-func WordFilter(match string) node.MiddleFunc[string, string] {
+func WordFilter(match string) node.MidFunc[string, string] {
 	return func(in <-chan string, out chan<- string) {
 		for line := range in {
 			// the input line will be only forwarded if it contains the match substring
@@ -41,9 +41,9 @@ func WordFilter(match string) node.MiddleFunc[string, string] {
 	}
 }
 
-// LineWriter returns a node.TerminalFunc[string] that reads all the lines from
+// LineWriter returns a node.EndFunc[string] that reads all the lines from
 // the input channel and forwards them to the provided output io.Writer.
-func LineWriter(output io.Writer) node.TerminalFunc[string] {
+func LineWriter(output io.Writer) node.EndFunc[string] {
 	return func(in <-chan string) {
 		for line := range in {
 			// ignore error handling for the sake of brevity

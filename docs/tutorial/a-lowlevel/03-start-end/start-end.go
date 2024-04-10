@@ -32,7 +32,7 @@ func FamousDates() node.StartFunc[time.Time] {
 }
 
 // Printer prints the received Date/Times in the standard output.
-func Printer() node.TerminalFunc[time.Time] {
+func Printer() node.EndFunc[time.Time] {
 	return func(in <-chan time.Time) {
 		for t := range in {
 			fmt.Println("printing:", t.Format(time.DateTime))
@@ -42,7 +42,7 @@ func Printer() node.TerminalFunc[time.Time] {
 
 // Earliest accumulates all the received time.Time and, after processing
 // all of them, prints the earliest time.Time
-func Earliest() node.TerminalFunc[time.Time] {
+func Earliest() node.EndFunc[time.Time] {
 	return func(in <-chan time.Time) {
 		earliest := <-in
 		for t := range in {

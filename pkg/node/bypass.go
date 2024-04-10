@@ -4,6 +4,18 @@ import (
 	"github.com/mariomac/pipes/pkg/node/internal/connect"
 )
 
+func IgnoreStart[OUT any]() StartFunc[OUT] {
+	return nil
+}
+
+func IgnoreMid[INOUT any]() MidFunc[INOUT, INOUT] {
+	return nil
+}
+
+func IgnoreEnd[IN any]() EndFunc[IN] {
+	return nil
+}
+
 // bypass node just makes sure, at graph construction time, that the inputs of this node
 // are bypassed to the destination nodes.
 // At a logical level, you can see a bypass node as a middle[T, T] node that just forwards
@@ -15,10 +27,10 @@ import (
 // (according to e.g. the user configuration) or just a bypass[T] node to transparently
 // forward data to the destination nodes.
 type bypass[INOUT any] struct {
-	outs []Receiver[INOUT]
+	outs []End[INOUT]
 }
 
-func (b *bypass[INOUT]) SendTo(r ...Receiver[INOUT]) {
+func (b *bypass[INOUT]) SendTo(r ...End[INOUT]) {
 	b.outs = append(b.outs, r...)
 }
 

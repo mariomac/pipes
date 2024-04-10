@@ -8,6 +8,7 @@ import (
 
 	"github.com/mariomac/pipes/pkg/graph"
 	"github.com/mariomac/pipes/pkg/graph/stage"
+
 	"github.com/mariomac/pipes/pkg/node"
 )
 
@@ -41,7 +42,7 @@ func StartProvider(_ context.Context, cfg StartConfig) (node.StartFuncCtx[string
 	}, nil
 }
 
-func MiddleProvider(_ context.Context, _ MiddleConfig) (node.MiddleFunc[string, string], error) {
+func MiddleProvider(_ context.Context, _ MiddleConfig) (node.MidFunc[string, string], error) {
 	return func(in <-chan string, out chan<- string) {
 		// a middle and terminal node shouldn't end until its previous node ends and
 		// all the input is processed
@@ -51,7 +52,7 @@ func MiddleProvider(_ context.Context, _ MiddleConfig) (node.MiddleFunc[string, 
 	}, nil
 }
 
-func TerminalProvider(_ context.Context, _ TerminalConfig) (node.TerminalFunc[string], error) {
+func TerminalProvider(_ context.Context, _ TerminalConfig) (node.EndFunc[string], error) {
 	return func(in <-chan string) {
 		for i := range in {
 			fmt.Println(i)

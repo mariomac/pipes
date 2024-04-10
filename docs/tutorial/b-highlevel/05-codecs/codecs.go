@@ -10,6 +10,7 @@ import (
 
 	"github.com/mariomac/pipes/pkg/graph"
 	"github.com/mariomac/pipes/pkg/graph/stage"
+
 	"github.com/mariomac/pipes/pkg/node"
 )
 
@@ -40,7 +41,7 @@ func Generator(_ context.Context, cfg GeneratorConfig) (node.StartFuncCtx[int], 
 	}, nil
 }
 
-func Printer(_ context.Context, _ PrinterConfig) (node.TerminalFunc[string], error) {
+func Printer(_ context.Context, _ PrinterConfig) (node.EndFunc[string], error) {
 	return func(in <-chan string) {
 		for i := range in {
 			fmt.Println("received: ", i)

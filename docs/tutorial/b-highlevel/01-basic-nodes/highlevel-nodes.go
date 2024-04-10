@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/mariomac/pipes/pkg/graph"
+
 	"github.com/mariomac/pipes/pkg/node"
 )
 
@@ -48,7 +49,7 @@ func LineReaderProvider(cfg LineReader) (node.StartFunc[string], error) {
 	}, nil
 }
 
-func WordFilterProvider(cfg WordFilter) (node.MiddleFunc[string, string], error) {
+func WordFilterProvider(cfg WordFilter) (node.MidFunc[string, string], error) {
 	// a middle and terminal node shouldn't end until its previous node ends and
 	// all the input is processed
 	return func(in <-chan string, out chan<- string) {
@@ -61,7 +62,7 @@ func WordFilterProvider(cfg WordFilter) (node.MiddleFunc[string, string], error)
 	}, nil
 }
 
-func LineWriterProvider(cfg LineWriter) (node.TerminalFunc[string], error) {
+func LineWriterProvider(cfg LineWriter) (node.EndFunc[string], error) {
 	return func(in <-chan string) {
 		for line := range in {
 			// ignore error handling for the sake of brevity

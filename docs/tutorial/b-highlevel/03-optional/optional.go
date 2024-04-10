@@ -12,6 +12,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/mariomac/pipes/pkg/graph"
+
 	"github.com/mariomac/pipes/pkg/node"
 )
 
@@ -48,7 +49,7 @@ func (c CasingType) Enabled() bool {
 
 // CasingProvider returns a middle function that transforms and submits each received
 // word according to the provided CasingType
-func CasingProvider(c CasingType) (node.MiddleFunc[string, string], error) {
+func CasingProvider(c CasingType) (node.MidFunc[string, string], error) {
 	return func(in <-chan string, out chan<- string) {
 		for i := range in {
 			if c == ToLower {
@@ -67,7 +68,7 @@ type Untilder struct{}
 // UntilderProvider returns a middle func that replaces vowels and consonants with
 // a tilde by their "non-tilded" similar. For example it would replace each ñ by n
 // or each ô by o.
-func UntilderProvider(_ *Untilder) (node.MiddleFunc[string, string], error) {
+func UntilderProvider(_ *Untilder) (node.MidFunc[string, string], error) {
 	return func(in <-chan string, out chan<- string) {
 		for tilded := range in {
 			untilded := make([]byte, len(tilded))
@@ -83,7 +84,7 @@ type Aggregator struct{}
 
 // AggregatorProvider reads all the words from the input channel and, after the channel
 // is closed and all the words are read, it shows the anagrams.
-func AggregatorProvider(_ Aggregator) (node.TerminalFunc[string], error) {
+func AggregatorProvider(_ Aggregator) (node.EndFunc[string], error) {
 	return func(in <-chan string) {
 		anagrams := map[string][]string{}
 		alreadyChecked := map[string]struct{}{}

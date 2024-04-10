@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/mariomac/pipes/pkg/graph/stage"
+
 	"github.com/mariomac/pipes/pkg/node"
 )
 
@@ -54,7 +55,7 @@ type Stdout struct {
 }
 
 // StdOutExportProvider receives any message and prints it, prepending a given message
-var StdOutExportProvider = func(_ context.Context, c Stdout) (node.TerminalFunc[string], error) {
+var StdOutExportProvider = func(_ context.Context, c Stdout) (node.EndFunc[string], error) {
 	return func(in <-chan string) {
 		for s := range in {
 			fmt.Println(c.Prepend + s)
@@ -68,7 +69,7 @@ type Deleter struct {
 }
 
 // FieldDeleterTransformProvider receives a map and removes the configured fields from it
-var FieldDeleterTransformProvider = func(_ context.Context, c Deleter) (node.MiddleFunc[map[string]any, map[string]any], error) {
+var FieldDeleterTransformProvider = func(_ context.Context, c Deleter) (node.MidFunc[map[string]any, map[string]any], error) {
 	toDelete := map[string]struct{}{}
 	for _, f := range c.Fields {
 		toDelete[fmt.Sprint(f)] = struct{}{}
