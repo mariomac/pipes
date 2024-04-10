@@ -5,8 +5,9 @@
 * Added `node.StartAll` and `node.DoneAll` convenience types
 * With the additions in this version, the high-level graph API is deprecated.
 * Added public `node.SenderReceiver` interface.
-* Allow nillable Start and Terminal nodes
-* TODO: pipe wrapper to let e.g. instantiating all the nodes with default features and not needing
+* Allow nillable Start, Middle and Terminal nodes
+* Remove experimental Demux API as it was type unsafe. It will be probably reworked in a future, as a typesafe. 
+* node.Pipe wrapper to let e.g. instantiating all the nodes with default features and not needing
   startall and doneall
 * TODO: move all to root "pipe" package
 * TODO: test that incomplete graphs (no start or no terms) fail to start, including bypassed start/term nodes

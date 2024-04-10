@@ -34,6 +34,10 @@ func AddMiddleOpt[INOUT any](p *Pipe, fn MiddleFunc[INOUT, INOUT], opts ...Optio
 }
 
 func AddMiddle[IN, OUT any](p *Pipe, fn MiddleFunc[IN, OUT], opts ...Option) SenderReceiver[IN, OUT] {
+	if fn == nil {
+		panic("AsMiddle can't receive a nil function. If you want to use" +
+			" an optional function that can be ignored in case of nil, invoke AsMiddleOpt")
+	}
 	return asMiddle(fn, p.joinOpts(opts...)...)
 }
 

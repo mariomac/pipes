@@ -1,8 +1,6 @@
 package node
 
 import (
-	"reflect"
-
 	"github.com/mariomac/pipes/pkg/node/internal/connect"
 )
 
@@ -22,15 +20,6 @@ type bypass[INOUT any] struct {
 
 func (b *bypass[INOUT]) SendTo(r ...Receiver[INOUT]) {
 	b.outs = append(b.outs, r...)
-}
-
-func (b *bypass[INOUT]) InType() reflect.Type {
-	return b.OutType()
-}
-
-func (b *bypass[INOUT]) OutType() reflect.Type {
-	var v INOUT
-	return reflect.TypeOf(v)
 }
 
 // nolint:unused

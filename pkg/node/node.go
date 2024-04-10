@@ -24,8 +24,6 @@ type MiddleFunc[IN, OUT any] func(in <-chan IN, out chan<- OUT)
 // It must process the inputs from the input channel until it's closed.
 type TerminalFunc[IN any] func(in <-chan IN)
 
-// TODO: OutType and InType methods are candidates for deprecation
-
 // Sender is any node that can send data to another node: node.start, node.middle and node.bypass
 type Sender[OUT any] interface {
 	// SendTo connect a sender with a group of receivers
