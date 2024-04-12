@@ -224,10 +224,14 @@ func nNilFinal(b *nilledPipe) *pipe.Final[int] { return &b.nilFinal }
 
 func TestNilNodes(t *testing.T) {
 	p := pipe.NewBuilder(&nilledPipe{})
-	pipe.AddStart(p, nNilStart, pipe.IgnoreStart[int]())
+	pipe.AddStartProvider(p, nNilStart, func() (pipe.StartFunc[int], error) {
+		return pipe.IgnoreStart[int](), nil
+	})
 	pipe.AddStart(p, nStart, Counter(1, 3))
 	var collected []int
-	pipe.AddFinal(p, nNilFinal, pipe.IgnoreFinal[int]())
+	pipe.AddFinalProvider(p, nNilFinal, func() (pipe.FinalFunc[int], error) {
+		return pipe.IgnoreFinal[int](), nil
+	})
 	pipe.AddFinal(p, nFinal, func(ints <-chan int) {
 		for i := range ints {
 			collected = append(collected, i)

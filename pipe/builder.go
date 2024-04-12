@@ -38,6 +38,8 @@ func (b *Builder[IMPL]) joinOpts(opts ...Option) []Option {
 
 // reflected providers
 type reflectProvider struct {
+	// start and final nodes accept nillable functions. Middle nodes require creating a bypasser
+	acceptNilFunc  bool
 	middleBypasser *reflect.Value
 	asNode         reflect.Value
 	fieldGetter    reflect.Value
@@ -49,14 +51,14 @@ func (rp *reflectProvider) call(nodesMap interface{}) (reflect.Value, error) {
 	res := rp.fn.Call(nil)
 	nodeFn, err := res[0], res[1]
 	if !err.IsNil() {
-		return reflect.Value{}, fmt.Errorf("error invoking start provider: %w", err.Interface().(error))
+		return reflect.Value{}, fmt.Errorf("error invoking provider: %w", err.Interface().(error))
 	}
 	// fieldPtr = fieldGetter(nodesMap)
 	fieldPtr := rp.fieldGetter.Call([]reflect.Value{reflect.ValueOf(nodesMap)})[0]
 
 	// a middle node getting a nil function is a bypasser
 	var node reflect.Value
-	if nodeFn.IsNil() {
+	if nodeFn.IsNil() && !rp.acceptNilFunc {
 		if rp.middleBypasser != nil {
 			// node = bypass[T]{}
 			node = *rp.middleBypasser

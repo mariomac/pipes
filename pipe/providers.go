@@ -22,9 +22,10 @@ type FinalProvider[IN any] func() (FinalFunc[IN], error)
 
 func AddStartProvider[IMPL NodesMap, OUT any](p *Builder[IMPL], field StartFieldPtr[IMPL, OUT], provider StartProvider[OUT]) {
 	p.startProviders = append(p.startProviders, reflectProvider{
-		asNode:      reflect.ValueOf(asStart[OUT]),
-		fieldGetter: reflect.ValueOf(field),
-		fn:          reflect.ValueOf(provider),
+		acceptNilFunc: true,
+		asNode:        reflect.ValueOf(asStart[OUT]),
+		fieldGetter:   reflect.ValueOf(field),
+		fn:            reflect.ValueOf(provider),
 	})
 }
 
@@ -48,9 +49,10 @@ func AddMiddleProvider[IMPL NodesMap, IN, OUT any](p *Builder[IMPL], field Middl
 
 func AddFinalProvider[IMPL NodesMap, IN any](p *Builder[IMPL], field FinalFieldPtr[IMPL, IN], provider FinalProvider[IN]) {
 	p.finalProviders = append(p.finalProviders, reflectProvider{
-		asNode:      reflect.ValueOf(asFinal[IN]),
-		fieldGetter: reflect.ValueOf(field),
-		fn:          reflect.ValueOf(provider),
+		acceptNilFunc: true,
+		asNode:        reflect.ValueOf(asFinal[IN]),
+		fieldGetter:   reflect.ValueOf(field),
+		fn:            reflect.ValueOf(provider),
 	})
 
 }
