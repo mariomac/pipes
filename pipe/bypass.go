@@ -50,8 +50,6 @@ func (b *bypass[INOUT]) isStarted() bool {
 	return started
 }
 
-// nolint:unused
-// golangci-lint bug: it's actually used through its interface
 func (b *bypass[INOUT]) start() {
 	if len(b.outs) == 0 {
 		panic("bypass node should have outputs")

@@ -27,6 +27,7 @@ type FinalFunc[IN any] func(in <-chan IN)
 // Start is any node that can send data to another node: node.start, node.doubler and node.bypass
 type Start[OUT any] interface {
 	// SendTo connect a sender with a group of receivers
+	// TODO: fail if there is any middle or final node not being destination of any "SendTo"
 	SendTo(r ...Final[OUT])
 }
 

@@ -175,27 +175,27 @@ func TestDemux_Unbuffered(t *testing.T) {
 	close(unblockReads)
 	select {
 	case <-endStart1: //ok!
-	case <-time.After(timeout):
+	case <-time.After(testTimeout):
 		require.Fail(t, "timeout while waiting for the init node to finish")
 	}
 	select {
 	case <-endStart2: //ok!
-	case <-time.After(timeout):
+	case <-time.After(testTimeout):
 		require.Fail(t, "timeout while waiting for the init node to finish")
 	}
 	select {
 	case <-endMiddle1: //ok!
-	case <-time.After(timeout):
+	case <-time.After(testTimeout):
 		require.Fail(t, "timeout while waiting for the middle node to finish")
 	}
 	select {
 	case <-endMiddle2: //ok!
-	case <-time.After(timeout):
+	case <-time.After(testTimeout):
 		require.Fail(t, "timeout while waiting for the middle node to finish")
 	}
 	select {
 	case <-endTerm: //ok!
-	case <-time.After(timeout):
+	case <-time.After(testTimeout):
 		require.Fail(t, "timeout while waiting for the terminal node to finish")
 	}
 }
@@ -246,12 +246,12 @@ func TestDemux_Buffered(t *testing.T) {
 
 	select {
 	case <-endStart: //ok!
-	case <-time.After(timeout):
+	case <-time.After(testTimeout):
 		require.Fail(t, "timeout while waiting for the init node to finish")
 	}
 	select {
 	case <-endMiddle: //ok!
-	case <-time.After(timeout):
+	case <-time.After(testTimeout):
 		require.Fail(t, "timeout while waiting for the middle node to finish")
 	}
 	select {
@@ -263,12 +263,12 @@ func TestDemux_Buffered(t *testing.T) {
 	// unblock terminal node
 	select {
 	case <-graphOut: //ok!
-	case <-time.After(timeout):
+	case <-time.After(testTimeout):
 		require.Fail(t, "timeout while waiting for the terminal node to forward the data")
 	}
 	select {
 	case <-endTerm: //ok!
-	case <-time.After(timeout):
+	case <-time.After(testTimeout):
 		require.Fail(t, "timeout while waiting for the terminal node to finish")
 	}
 }
@@ -304,7 +304,7 @@ func TestDemux_Error_WrongDemuxKey(t *testing.T) {
 		init.Start()
 		select {
 		case <-panicked: //ok!
-		case <-time.After(timeout):
+		case <-time.After(testTimeout):
 			t.Fatal("expected asStartDemux to panic!")
 		}
 	})
@@ -324,7 +324,7 @@ func TestDemux_Error_WrongDemuxKey(t *testing.T) {
 		init.Start()
 		select {
 		case <-panicked: //ok!
-		case <-time.After(timeout):
+		case <-time.After(testTimeout):
 			t.Fatal("expected asStartDemux to panic!")
 		}
 	})
