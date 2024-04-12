@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/mariomac/pipes/pipe"
-
 	helpers "github.com/mariomac/pipes/testers"
 )
 

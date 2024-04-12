@@ -106,6 +106,7 @@ func TestAsMiddleDemux(t *testing.T) {
 	assert.Equal(t, []int{0, 1, 3, 4, 5, 7, 8, 9, 12, 16}, sorted)
 }
 
+//nolint:cyclop
 func TestDemux_Unbuffered(t *testing.T) {
 	graphIn := make(chan int)
 	unblockReads := make(chan struct{})

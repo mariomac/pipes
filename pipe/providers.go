@@ -1,6 +1,8 @@
 package pipe
 
-import "reflect"
+import (
+	"reflect"
+)
 
 type NodesMap interface {
 	Connect()

@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/mariomac/pipes/pkg/graph"
-
 	"github.com/mariomac/pipes/pkg/node"
 )
 

@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/mariomac/pipes/pkg/graph"
-
 	"github.com/mariomac/pipes/pkg/node"
 )
 
@@ -53,7 +52,7 @@ func PrimeFilterProvider(_ PrimeFilter) (node.MiddleDemuxFunc[int], error) {
 
 type PrimePrinter struct{}
 
-func PrimePrinterProvider(_ PrimePrinter) (node.EndFunc[int], error) {
+func PrimePrinterProvider(_ PrimePrinter) (node.TerminalFunc[int], error) {
 	return func(in <-chan int) {
 		var primes []int
 		for i := range in {
@@ -65,7 +64,7 @@ func PrimePrinterProvider(_ PrimePrinter) (node.EndFunc[int], error) {
 
 type DiscardPrinter struct{}
 
-func DiscardPrinterProvider(_ DiscardPrinter) (node.EndFunc[int], error) {
+func DiscardPrinterProvider(_ DiscardPrinter) (node.TerminalFunc[int], error) {
 	return func(in <-chan int) {
 		var discarded []int
 		for i := range in {

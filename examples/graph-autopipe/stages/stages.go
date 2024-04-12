@@ -9,7 +9,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/mariomac/pipes/pkg/graph/stage"
-
 	"github.com/mariomac/pipes/pkg/node"
 )
 

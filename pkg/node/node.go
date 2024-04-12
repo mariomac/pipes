@@ -84,24 +84,24 @@ type Middle[IN, OUT any] struct {
 	inType  reflect.Type
 }
 
-func (i *Middle[IN, OUT]) joiners() []*connect.Joiner[IN] {
-	return []*connect.Joiner[IN]{&i.inputs}
+func (mn *Middle[IN, OUT]) joiners() []*connect.Joiner[IN] {
+	return []*connect.Joiner[IN]{&mn.inputs}
 }
 
-func (i *Middle[IN, OUT]) isStarted() bool {
-	return i.started
+func (mn *Middle[IN, OUT]) isStarted() bool {
+	return mn.started
 }
 
-func (s *Middle[IN, OUT]) SendTo(outputs ...Receiver[OUT]) {
-	s.outs = append(s.outs, outputs...)
+func (mn *Middle[IN, OUT]) SendTo(outputs ...Receiver[OUT]) {
+	mn.outs = append(mn.outs, outputs...)
 }
 
-func (m *Middle[IN, OUT]) OutType() reflect.Type {
-	return m.outType
+func (mn *Middle[IN, OUT]) OutType() reflect.Type {
+	return mn.outType
 }
 
-func (m *Middle[IN, OUT]) InType() reflect.Type {
-	return m.inType
+func (mn *Middle[IN, OUT]) InType() reflect.Type {
+	return mn.inType
 }
 
 // Terminal is any node that receives data from another node and does not forward it to another node,
@@ -115,18 +115,18 @@ type Terminal[IN any] struct {
 	inType  reflect.Type
 }
 
-func (t *Terminal[IN]) joiners() []*connect.Joiner[IN] {
-	if t == nil {
+func (tn *Terminal[IN]) joiners() []*connect.Joiner[IN] {
+	if tn == nil {
 		return nil
 	}
-	return []*connect.Joiner[IN]{&t.inputs}
+	return []*connect.Joiner[IN]{&tn.inputs}
 }
 
-func (t *Terminal[IN]) isStarted() bool {
-	if t == nil {
+func (tn *Terminal[IN]) isStarted() bool {
+	if tn == nil {
 		return false
 	}
-	return t.started
+	return tn.started
 }
 
 // Done returns a channel that is closed when the Terminal node has ended its processing. This
@@ -134,17 +134,17 @@ func (t *Terminal[IN]) isStarted() bool {
 // allows blocking the execution until all the data in the graph has been processed and all the
 // previous stages have ended
 // Deprecated package. Use github.com/mariomac/pipes/pipe package
-func (t *Terminal[IN]) Done() <-chan struct{} {
-	if t == nil {
+func (tn *Terminal[IN]) Done() <-chan struct{} {
+	if tn == nil {
 		closed := make(chan struct{})
 		close(closed)
 		return closed
 	}
-	return t.done
+	return tn.done
 }
 
-func (m *Terminal[IN]) InType() reflect.Type {
-	return m.inType
+func (tn *Terminal[IN]) InType() reflect.Type {
+	return tn.inType
 }
 
 // AsStart wraps a group of StartFunc with the same signature into a Start node.
@@ -186,19 +186,19 @@ func AsTerminal[IN any](fun TerminalFunc[IN], opts ...Option) *Terminal[IN] {
 // Start starts the function wrapped in the Start node. This method should be invoked
 // for all the start nodes of the same graph, so the graph can properly start and finish.
 // Deprecated package. Use github.com/mariomac/pipes/pipe package
-func (i *Start[OUT]) Start() {
+func (sn *Start[OUT]) Start() {
 	// a nil start node can be started without no effect on the graph.
 	// this allows setting optional nillable start nodes and let start all of them
 	// as a group in a more convenient way
-	if i == nil {
+	if sn == nil {
 		return
 	}
-	forker, err := i.receiverGroup.StartReceivers()
+	forker, err := sn.receiverGroup.StartReceivers()
 	if err != nil {
 		panic("Start: " + err.Error())
 	}
-	for fn := range i.funs {
-		fun := i.funs[fn]
+	for fn := range sn.funs {
+		fun := sn.funs[fn]
 		go func() {
 			fun(forker.AcquireSender())
 			forker.ReleaseSender()
@@ -206,13 +206,13 @@ func (i *Start[OUT]) Start() {
 	}
 }
 
-func (i *Middle[IN, OUT]) start() {
-	if len(i.outs) == 0 {
+func (mn *Middle[IN, OUT]) start() {
+	if len(mn.outs) == 0 {
 		panic("Middle node should have outputs")
 	}
-	i.started = true
-	joiners := make([]*connect.Joiner[OUT], 0, len(i.outs))
-	for _, out := range i.outs {
+	mn.started = true
+	joiners := make([]*connect.Joiner[OUT], 0, len(mn.outs))
+	for _, out := range mn.outs {
 		joiners = append(joiners, out.joiners()...)
 		if !out.isStarted() {
 			out.start()
@@ -220,19 +220,19 @@ func (i *Middle[IN, OUT]) start() {
 	}
 	forker := connect.Fork(joiners...)
 	go func() {
-		i.fun(i.inputs.Receiver(), forker.AcquireSender())
+		mn.fun(mn.inputs.Receiver(), forker.AcquireSender())
 		forker.ReleaseSender()
 	}()
 }
 
-func (t *Terminal[IN]) start() {
-	if t == nil {
+func (tn *Terminal[IN]) start() {
+	if tn == nil {
 		return
 	}
-	t.started = true
+	tn.started = true
 	go func() {
-		t.fun(t.inputs.Receiver())
-		close(t.done)
+		tn.fun(tn.inputs.Receiver())
+		close(tn.done)
 	}()
 }
 
@@ -253,33 +253,33 @@ type receiverGroup[OUT any] struct {
 }
 
 // SendTo connects a group of receivers to the current receiverGroup
-func (s *Start[OUT]) SendTo(outputs ...Receiver[OUT]) {
+func (sn *Start[OUT]) SendTo(outputs ...Receiver[OUT]) {
 	// a nil start node can be operated without no effect on the graph.
 	// this allows connecting optional nillable start nodes and let start all of them
 	// as a group in a more convenient way
-	if s != nil {
-		s.receiverGroup.SendTo(outputs...)
+	if sn != nil {
+		sn.receiverGroup.SendTo(outputs...)
 	}
 }
 
-func (s *receiverGroup[OUT]) SendTo(outputs ...Receiver[OUT]) {
-	s.Outs = append(s.Outs, outputs...)
+func (rg *receiverGroup[OUT]) SendTo(outputs ...Receiver[OUT]) {
+	rg.Outs = append(rg.Outs, outputs...)
 }
 
 // OutType is the common input type of the receivers
 // (output of the receiver group)
-func (s *receiverGroup[OUT]) OutType() reflect.Type {
-	return s.outType
+func (rg *receiverGroup[OUT]) OutType() reflect.Type {
+	return rg.outType
 }
 
 // StartReceivers start the receivers and return a connection
 // forker to them
-func (i *receiverGroup[OUT]) StartReceivers() (*connect.Forker[OUT], error) {
-	if len(i.Outs) == 0 {
+func (rg *receiverGroup[OUT]) StartReceivers() (*connect.Forker[OUT], error) {
+	if len(rg.Outs) == 0 {
 		return nil, errors.New("node should have outputs")
 	}
-	joiners := make([]*connect.Joiner[OUT], 0, len(i.Outs))
-	for _, out := range i.Outs {
+	joiners := make([]*connect.Joiner[OUT], 0, len(rg.Outs))
+	for _, out := range rg.Outs {
 		joiners = append(joiners, out.joiners()...)
 		if !out.isStarted() {
 			out.start()

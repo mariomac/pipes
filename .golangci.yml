@@ -1,0 +1,36 @@
+issues:
+  exclude-dirs:
+    - configs
+    - docs
+run:
+  go: "1.22"
+  build-tags:
+    - integration
+linters:
+  enable:
+    - errcheck
+    - errorlint
+    - cyclop
+    - errname
+    - exportloopref
+    - gocritic
+    - goimports
+    - gosimple
+    - govet
+    - ineffassign
+    - revive
+    - staticcheck
+    - stylecheck
+    - typecheck
+    - unused
+  disable:
+    - exhaustive
+linters-settings:
+  gocritic:
+    enabled-checks:
+      - rangeExprCopy
+      - rangeValCopy
+      - indexAlloc
+  cyclop:
+    max-complexity: 12
+

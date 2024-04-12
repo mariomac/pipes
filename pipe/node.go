@@ -151,20 +151,20 @@ func asFinal[IN any](fun FinalFunc[IN], opts ...Option) *terminal[IN] {
 
 // Start the function wrapped in the start node. This method should be invoked
 // for all the start nodes of the same pipeline, so the pipeline can properly start and finish.
-func (i *start[OUT]) Start() {
+func (sn *start[OUT]) Start() {
 	// a nil start node can be started without no effect on the pipeline.
 	// this allows setting optional nillable start nodes and let start all of them
 	// as a group in a more convenient way
-	if i == nil {
+	if sn == nil {
 		return
 	}
-	forker, err := i.receiverGroup.StartReceivers()
+	forker, err := sn.receiverGroup.StartReceivers()
 	if err != nil {
 		panic("start: " + err.Error())
 	}
 
 	go func() {
-		i.fun(forker.AcquireSender())
+		sn.fun(forker.AcquireSender())
 		forker.ReleaseSender()
 	}()
 }
@@ -214,27 +214,27 @@ type receiverGroup[OUT any] struct {
 }
 
 // SendTo connects a group of receivers to the current receiverGroup
-func (s *start[OUT]) SendTo(outputs ...Final[OUT]) {
+func (sn *start[OUT]) SendTo(outputs ...Final[OUT]) {
 	// a nil start node can be operated without no effect on the pipeline.
 	// this allows connecting optional nillable start nodes and let start all of them
 	// as a group in a more convenient way
-	if s != nil {
-		s.receiverGroup.SendTo(outputs...)
+	if sn != nil {
+		sn.receiverGroup.SendTo(outputs...)
 	}
 }
 
-func (s *receiverGroup[OUT]) SendTo(outputs ...Final[OUT]) {
-	s.Outs = append(s.Outs, outputs...)
+func (rg *receiverGroup[OUT]) SendTo(outputs ...Final[OUT]) {
+	rg.Outs = append(rg.Outs, outputs...)
 }
 
 // StartReceivers start the receivers and return a connection
 // forker to them
-func (i *receiverGroup[OUT]) StartReceivers() (*connect.Forker[OUT], error) {
-	if len(i.Outs) == 0 {
+func (rg *receiverGroup[OUT]) StartReceivers() (*connect.Forker[OUT], error) {
+	if len(rg.Outs) == 0 {
 		return nil, errors.New("node should have outputs")
 	}
-	joiners := make([]*connect.Joiner[OUT], 0, len(i.Outs))
-	for _, out := range i.Outs {
+	joiners := make([]*connect.Joiner[OUT], 0, len(rg.Outs))
+	for _, out := range rg.Outs {
 		joiners = append(joiners, out.joiners()...)
 		if !out.isStarted() {
 			out.start()

@@ -12,7 +12,6 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/mariomac/pipes/pkg/graph"
-
 	"github.com/mariomac/pipes/pkg/node"
 )
 

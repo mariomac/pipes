@@ -10,7 +10,6 @@ import (
 
 	"github.com/mariomac/pipes/pkg/graph"
 	"github.com/mariomac/pipes/pkg/graph/stage"
-
 	"github.com/mariomac/pipes/pkg/node"
 )
 
