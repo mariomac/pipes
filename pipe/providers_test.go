@@ -78,7 +78,7 @@ func TestExample(t *testing.T) {
 		}, nil
 	})
 	pipe.AddMiddleProvider(p, bypasser, func() (pipe.MiddleFunc[int, int], error) {
-		return pipe.BypassMid[int](), nil
+		return pipe.Bypass[int](), nil
 	})
 
 	pipe.AddMiddleProvider(p, (*intIntNodeMap).middleNode, func() (pipe.MiddleFunc[int, int], error) {
