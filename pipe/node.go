@@ -1,4 +1,4 @@
-// Package node provides functionalities to create nodes and interconnect them.
+// Package pipe provides functionalities to create nodes and interconnect them.
 // A Node is a function container that can be connected via channels to other nodes.
 // A node can send data to multiple nodes, and receive data from multiple nodes.
 package pipe
@@ -22,15 +22,14 @@ type MiddleFunc[IN, OUT any] func(in <-chan IN, out chan<- OUT)
 // It must process the inputs from the input channel until it's closed.
 type FinalFunc[IN any] func(in <-chan IN)
 
-// Start is any node that can send data to another node: node.start, node.doubler and node.bypass
-type Start[OUT any] interface {
-	// SendTo connect a sender with a group of receivers
-	// TODO: fail if there is any middle or final node not being destination of any "SendTo"
-	SendTo(r ...Final[OUT])
+// Sender is any node that can send data to another node: Start or Middle
+type Sender[OUT any] interface {
+	// SendTo connects a sender with a group of receivers
+	SendTo(r ...Receiver[OUT]) // TODO: fail if there is any middle or final node not being destination of any "SendTo"
 }
 
-// Final is any node that can receive data from another node: node.bypass, node.doubler and node.terminal
-type Final[IN any] interface {
+// Receiver is any node that can receive data from another node: Middle or Final nodes
+type Receiver[IN any] interface {
 	isStarted() bool
 	start()
 	// joiners will usually return only one joiner instance but in
@@ -39,10 +38,22 @@ type Final[IN any] interface {
 	joiners() []*connect.Joiner[IN]
 }
 
-// Middle is any node that can both send and receive data: node.bypass or node.doubler.
+// Start nodes insert data into the pipeline. They only can send data to the pipeline, despite they
+// could acquire data by other means out of the pipes library.
+type Start[OUT any] interface {
+	Sender[OUT]
+}
+
+// Middle nodes go in between Start, Final or other Middle nodes. They can send and receive data.
 type Middle[IN, OUT any] interface {
 	Final[IN]
 	Start[OUT]
+}
+
+// Final nodes go at the end of the pipeline. They only can receive data from the pipeline, despite
+// they could export that data by other means out of the pipes library.
+type Final[IN any] interface {
+	Receiver[IN]
 }
 
 // start nodes are the starting points of a pipeline. This is, all the nodes that bring information
@@ -59,7 +70,7 @@ type start[OUT any] struct {
 // and forwards the data to another node.
 // An middle node must have at least one output node.
 type middle[IN, OUT any] struct {
-	outs    []Final[OUT]
+	outs    []Receiver[OUT]
 	inputs  connect.Joiner[IN]
 	started bool
 	fun     MiddleFunc[IN, OUT]
@@ -73,7 +84,7 @@ func (m *middle[IN, OUT]) isStarted() bool {
 	return m.started
 }
 
-func (m *middle[IN, OUT]) SendTo(outputs ...Final[OUT]) {
+func (m *middle[IN, OUT]) SendTo(outputs ...Receiver[OUT]) {
 	m.outs = append(m.outs, outputs...)
 }
 
@@ -208,11 +219,11 @@ func getOptions(opts ...Option) creationOptions {
 // receiverGroup connects a sender node with a collection
 // of Final nodes through a common connect.Forker instance.
 type receiverGroup[OUT any] struct {
-	Outs []Final[OUT]
+	Outs []Receiver[OUT]
 }
 
 // SendTo connects a group of receivers to the current receiverGroup
-func (sn *start[OUT]) SendTo(outputs ...Final[OUT]) {
+func (sn *start[OUT]) SendTo(outputs ...Receiver[OUT]) {
 	// a nil start node can be operated without no effect on the pipeline.
 	// this allows connecting optional nillable start nodes and let start all of them
 	// as a group in a more convenient way
@@ -221,7 +232,7 @@ func (sn *start[OUT]) SendTo(outputs ...Final[OUT]) {
 	}
 }
 
-func (rg *receiverGroup[OUT]) SendTo(outputs ...Final[OUT]) {
+func (rg *receiverGroup[OUT]) SendTo(outputs ...Receiver[OUT]) {
 	rg.Outs = append(rg.Outs, outputs...)
 }
 

@@ -32,10 +32,10 @@ func IgnoreFinal[IN any]() FinalFunc[IN] {
 // forward data to the destination nodes.
 // TODO: merge with middle node?
 type bypass[INOUT any] struct {
-	outs []Final[INOUT]
+	outs []Receiver[INOUT]
 }
 
-func (b *bypass[INOUT]) SendTo(r ...Final[INOUT]) {
+func (b *bypass[INOUT]) SendTo(r ...Receiver[INOUT]) {
 	b.outs = append(b.outs, r...)
 }
 
