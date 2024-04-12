@@ -8,15 +8,15 @@ func IgnoreStart[OUT any]() StartFunc[OUT] {
 	return nil
 }
 
-// BypassMid is a convenience function to explicitly specify that the returned MidFunc
+// BypassMid is a convenience function to explicitly specify that the returned MiddleFunc
 // is going to be ignored/bypassed by the pipes library
-func BypassMid[INOUT any]() MidFunc[INOUT, INOUT] {
+func BypassMid[INOUT any]() MiddleFunc[INOUT, INOUT] {
 	return nil
 }
 
-// IgnoreEnd is a convenience function to explicitly specify that the returned EndFunc
+// IgnoreEnd is a convenience function to explicitly specify that the returned FinalFunc
 // // is going to be ignored/bypassed by the pipes library
-func IgnoreEnd[IN any]() EndFunc[IN] {
+func IgnoreEnd[IN any]() FinalFunc[IN] {
 	return nil
 }
 

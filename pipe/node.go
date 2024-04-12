@@ -15,22 +15,22 @@ import (
 // value to that channel during an indefinite amount of time.
 type StartFunc[OUT any] func(out chan<- OUT)
 
-// MidFunc is a function that receives a readable channel as first argument,
+// MiddleFunc is a function that receives a readable channel as first argument,
 // and a writable channel as second argument.
 // It must process the inputs from the input channel until it's closed.
-type MidFunc[IN, OUT any] func(in <-chan IN, out chan<- OUT)
+type MiddleFunc[IN, OUT any] func(in <-chan IN, out chan<- OUT)
 
-// EndFunc is a function that receives a readable channel as unique argument.
+// FinalFunc is a function that receives a readable channel as unique argument.
 // It must process the inputs from the input channel until it's closed.
-type EndFunc[IN any] func(in <-chan IN)
+type FinalFunc[IN any] func(in <-chan IN)
 
-// Start is any node that can send data to another node: node.start, node.middle and node.bypass
+// Start is any node that can send data to another node: node.start, node.doubler and node.bypass
 type Start[OUT any] interface {
 	// SendTo connect a sender with a group of receivers
 	SendTo(r ...Final[OUT])
 }
 
-// Final is any node that can receive data from another node: node.bypass, node.middle and node.terminal
+// Final is any node that can receive data from another node: node.bypass, node.doubler and node.terminal
 type Final[IN any] interface {
 	isStarted() bool
 	start()
@@ -40,7 +40,7 @@ type Final[IN any] interface {
 	joiners() []*connect.Joiner[IN]
 }
 
-// Middle is any node that can both send and receive data: node.bypass or node.middle.
+// Middle is any node that can both send and receive data: node.bypass or node.doubler.
 type Middle[IN, OUT any] interface {
 	Final[IN]
 	Start[OUT]
@@ -63,7 +63,7 @@ type middle[IN, OUT any] struct {
 	outs    []Final[OUT]
 	inputs  connect.Joiner[IN]
 	started bool
-	fun     MidFunc[IN, OUT]
+	fun     MiddleFunc[IN, OUT]
 }
 
 func (m *middle[IN, OUT]) joiners() []*connect.Joiner[IN] {
@@ -83,7 +83,7 @@ func (m *middle[IN, OUT]) SendTo(outputs ...Final[OUT]) {
 type terminal[IN any] struct {
 	inputs  connect.Joiner[IN]
 	started bool
-	fun     EndFunc[IN]
+	fun     FinalFunc[IN]
 	done    chan struct{}
 }
 
@@ -126,8 +126,8 @@ func asStart[OUT any](fun StartFunc[OUT]) *start[OUT] {
 	}
 }
 
-// asMiddle wraps an MidFunc into an middle node.
-func asMiddle[IN, OUT any](fun MidFunc[IN, OUT], opts ...Option) *middle[IN, OUT] {
+// asMiddle wraps an MiddleFunc into an middle node.
+func asMiddle[IN, OUT any](fun MiddleFunc[IN, OUT], opts ...Option) *middle[IN, OUT] {
 	options := getOptions(opts...)
 	return &middle[IN, OUT]{
 		inputs: connect.NewJoiner[IN](options.channelBufferLen),
@@ -135,8 +135,8 @@ func asMiddle[IN, OUT any](fun MidFunc[IN, OUT], opts ...Option) *middle[IN, OUT
 	}
 }
 
-// asFinal wraps a EndFunc into a terminal node.
-func asFinal[IN any](fun EndFunc[IN], opts ...Option) *terminal[IN] {
+// asFinal wraps a FinalFunc into a terminal node.
+func asFinal[IN any](fun FinalFunc[IN], opts ...Option) *terminal[IN] {
 	if fun == nil {
 		return nil
 	}
@@ -170,7 +170,7 @@ func (i *start[OUT]) Start() {
 
 func (m *middle[IN, OUT]) start() {
 	if len(m.outs) == 0 {
-		panic("middle node should have outputs")
+		panic("doubler node should have outputs")
 	}
 	m.started = true
 	joiners := make([]*connect.Joiner[OUT], 0, len(m.outs))

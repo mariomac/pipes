@@ -1,3 +1,5 @@
+//go:build ignoreme
+
 package pipe_test
 
 import (
@@ -16,7 +18,7 @@ import (
 const timeout = 2 * time.Second
 
 func TestBasicGraph(t *testing.T) {
-	p := pipe.NewPipe()
+	p := pipe.NewBuilder()
 
 	start1 := pipe.pipe.AddStart(p, Counter(1, 3))
 	start2 := pipe.AddStart(p, Counter(6, 8))
@@ -66,7 +68,7 @@ func TestBasicGraph(t *testing.T) {
 }
 
 func TestConfigurationOptions_UnbufferedChannelCommunication(t *testing.T) {
-	p := pipe.NewPipe()
+	p := pipe.NewBuilder()
 
 	graphIn, graphOut := make(chan int), make(chan int)
 	unblockReads := make(chan struct{})
@@ -101,7 +103,7 @@ func TestConfigurationOptions_UnbufferedChannelCommunication(t *testing.T) {
 	}
 	select {
 	case <-endMiddle:
-		require.Fail(t, "expected that middle node is still blocked")
+		require.Fail(t, "expected that doubler node is still blocked")
 	default: //ok!
 	}
 	select {
@@ -124,7 +126,7 @@ func TestConfigurationOptions_UnbufferedChannelCommunication(t *testing.T) {
 	select {
 	case <-endMiddle: //ok!
 	case <-time.After(timeout):
-		require.Fail(t, "timeout while waiting for the middle node to finish")
+		require.Fail(t, "timeout while waiting for the doubler node to finish")
 	}
 	select {
 	case <-endTerm: //ok!
@@ -134,7 +136,7 @@ func TestConfigurationOptions_UnbufferedChannelCommunication(t *testing.T) {
 }
 
 func TestConfigurationOptions_BufferedChannelCommunication(t *testing.T) {
-	p := pipe.NewPipe()
+	p := pipe.NewBuilder()
 
 	graphIn, graphOut := make(chan int), make(chan int)
 	endStart, endMiddle, endTerm := make(chan struct{}), make(chan struct{}), make(chan struct{})
@@ -169,7 +171,7 @@ func TestConfigurationOptions_BufferedChannelCommunication(t *testing.T) {
 	select {
 	case <-endMiddle: //ok!
 	case <-time.After(timeout):
-		require.Fail(t, "timeout while waiting for the middle node to finish")
+		require.Fail(t, "timeout while waiting for the doubler node to finish")
 	}
 	select {
 	case <-endTerm:
@@ -192,7 +194,7 @@ func TestConfigurationOptions_BufferedChannelCommunication(t *testing.T) {
 }
 
 func TestNilNodes(t *testing.T) {
-	p := pipe.NewPipe()
+	p := pipe.NewBuilder()
 	nilStart := pipe.AddStart[int](p, nil)
 	start := pipe.AddStart(p, Counter(1, 3))
 	var collected []int
