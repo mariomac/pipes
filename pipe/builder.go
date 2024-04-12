@@ -14,6 +14,7 @@ type doneable interface {
 	Done() <-chan struct{}
 }
 
+// Builder provides tools and functions to create a pipeline and add nodes and node providers to it.
 type Builder[IMPL NodesMap] struct {
 	nodesMap   IMPL
 	opts       []Option
@@ -25,6 +26,10 @@ type Builder[IMPL NodesMap] struct {
 	finalProviders []reflectProvider
 }
 
+// NewBuilder creates a pipeline builder whose nodes and connections are defined by the
+// passed NodesMap implementation.
+// It accepts a set of default options that would apply to all the nodes and connections
+// in the pipeline.
 func NewBuilder[IMPL NodesMap](nodesMap IMPL, defaultOpts ...Option) *Builder[IMPL] {
 	return &Builder[IMPL]{nodesMap: nodesMap, opts: defaultOpts}
 }
@@ -36,7 +41,9 @@ func (b *Builder[IMPL]) joinOpts(opts ...Option) []Option {
 	return opt
 }
 
-// reflected providers
+// reflected providers hides some "reflection magic" to allow connecting nodes from diverse
+// input and output types. Despite reflection API is not type safe, the typesafe public Go API
+// ensures that, for example, you can't connect two nodes from different out->in types.
 type reflectProvider struct {
 	// start and final nodes accept nillable functions. Middle nodes require creating a bypasser
 	acceptNilFunc  bool
@@ -74,6 +81,7 @@ func (rp *reflectProvider) call(nodesMap interface{}) (reflect.Value, error) {
 	return node, nil
 }
 
+// Build a pipe Runner ready to Start processing data until all the nodes are Done.
 func (b *Builder[IMPL]) Build() (*Runner, error) {
 	runner := &Runner{
 		startNodes: slices.Clone(b.startNodes),
