@@ -25,7 +25,7 @@ func TestBasicGraph(t *testing.T) {
 	oddsMsg := pipe.AddMiddle(p, Messager("odd"))
 	evensMsg := pipe.AddMiddle(p, Messager("even"))
 	collected := map[string]struct{}{}
-	collector := pipe.AddTerminal(p, func(strs <-chan string) {
+	collector := pipe.AddFinal(p, func(strs <-chan string) {
 		for str := range strs {
 			collected[str] = struct{}{}
 		}
@@ -82,7 +82,7 @@ func TestConfigurationOptions_UnbufferedChannelCommunication(t *testing.T) {
 		out <- n
 		close(endMiddle)
 	})
-	term := pipe.AddTerminal(p, func(in <-chan int) {
+	term := pipe.AddFinal(p, func(in <-chan int) {
 		n := <-in
 		graphOut <- n
 		close(endTerm)
@@ -148,7 +148,7 @@ func TestConfigurationOptions_BufferedChannelCommunication(t *testing.T) {
 		out <- n
 		close(endMiddle)
 	}, pipe.ChannelBufferLen(1))
-	term := pipe.AddTerminal(p, func(in <-chan int) {
+	term := pipe.AddFinal(p, func(in <-chan int) {
 		n := <-in
 		graphOut <- n
 		close(endTerm)
@@ -196,8 +196,8 @@ func TestNilNodes(t *testing.T) {
 	nilStart := pipe.AddStart[int](p, nil)
 	start := pipe.AddStart(p, Counter(1, 3))
 	var collected []int
-	nilTerminal := pipe.AddTerminal[int](p, nil)
-	collector := pipe.AddTerminal(p, func(ints <-chan int) {
+	nilTerminal := pipe.AddFinal[int](p, nil)
+	collector := pipe.AddFinal(p, func(ints <-chan int) {
 		for i := range ints {
 			collected = append(collected, i)
 		}

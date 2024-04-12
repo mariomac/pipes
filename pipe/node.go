@@ -27,11 +27,11 @@ type EndFunc[IN any] func(in <-chan IN)
 // Start is any node that can send data to another node: node.start, node.middle and node.bypass
 type Start[OUT any] interface {
 	// SendTo connect a sender with a group of receivers
-	SendTo(r ...End[OUT])
+	SendTo(r ...Final[OUT])
 }
 
-// End is any node that can receive data from another node: node.bypass, node.middle and node.terminal
-type End[IN any] interface {
+// Final is any node that can receive data from another node: node.bypass, node.middle and node.terminal
+type Final[IN any] interface {
 	isStarted() bool
 	start()
 	// joiners will usually return only one joiner instance but in
@@ -40,9 +40,9 @@ type End[IN any] interface {
 	joiners() []*connect.Joiner[IN]
 }
 
-// Mid is any node that can both send and receive data: node.bypass or node.middle.
-type Mid[IN, OUT any] interface {
-	End[IN]
+// Middle is any node that can both send and receive data: node.bypass or node.middle.
+type Middle[IN, OUT any] interface {
+	Final[IN]
 	Start[OUT]
 }
 
@@ -60,7 +60,7 @@ type start[OUT any] struct {
 // and forwards the data to another node.
 // An middle node must have at least one output node.
 type middle[IN, OUT any] struct {
-	outs    []End[OUT]
+	outs    []Final[OUT]
 	inputs  connect.Joiner[IN]
 	started bool
 	fun     MidFunc[IN, OUT]
@@ -74,7 +74,7 @@ func (m *middle[IN, OUT]) isStarted() bool {
 	return m.started
 }
 
-func (m *middle[IN, OUT]) SendTo(outputs ...End[OUT]) {
+func (m *middle[IN, OUT]) SendTo(outputs ...Final[OUT]) {
 	m.outs = append(m.outs, outputs...)
 }
 
@@ -135,8 +135,8 @@ func asMiddle[IN, OUT any](fun MidFunc[IN, OUT], opts ...Option) *middle[IN, OUT
 	}
 }
 
-// asTerminal wraps a EndFunc into a terminal node.
-func asTerminal[IN any](fun EndFunc[IN], opts ...Option) *terminal[IN] {
+// asFinal wraps a EndFunc into a terminal node.
+func asFinal[IN any](fun EndFunc[IN], opts ...Option) *terminal[IN] {
 	if fun == nil {
 		return nil
 	}
@@ -207,13 +207,13 @@ func getOptions(opts ...Option) creationOptions {
 }
 
 // receiverGroup connects a sender node with a collection
-// of End nodes through a common connect.Forker instance.
+// of Final nodes through a common connect.Forker instance.
 type receiverGroup[OUT any] struct {
-	Outs []End[OUT]
+	Outs []Final[OUT]
 }
 
 // SendTo connects a group of receivers to the current receiverGroup
-func (s *start[OUT]) SendTo(outputs ...End[OUT]) {
+func (s *start[OUT]) SendTo(outputs ...Final[OUT]) {
 	// a nil start node can be operated without no effect on the pipeline.
 	// this allows connecting optional nillable start nodes and let start all of them
 	// as a group in a more convenient way
@@ -222,7 +222,7 @@ func (s *start[OUT]) SendTo(outputs ...End[OUT]) {
 	}
 }
 
-func (s *receiverGroup[OUT]) SendTo(outputs ...End[OUT]) {
+func (s *receiverGroup[OUT]) SendTo(outputs ...Final[OUT]) {
 	s.Outs = append(s.Outs, outputs...)
 }
 

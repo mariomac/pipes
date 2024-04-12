@@ -8,15 +8,15 @@ type NodesMap interface {
 
 type StartFieldPtr[IMPL NodesMap, OUT any] func(IMPL) *Start[OUT]
 
-type MidFieldPtr[IMPL NodesMap, IN, OUT any] func(IMPL) *Mid[IN, OUT]
+type MiddleFieldPtr[IMPL NodesMap, IN, OUT any] func(IMPL) *Middle[IN, OUT]
 
-type EndFieldPtr[IMPL NodesMap, IN any] func(IMPL) *End[IN]
+type FinalFieldPtr[IMPL NodesMap, IN any] func(IMPL) *Final[IN]
 
 type StartProvider[OUT any] func() (StartFunc[OUT], error)
 
 type MiddleProvider[IN, OUT any] func() (MidFunc[IN, OUT], error)
 
-type EndProvider[IN any] func() (EndFunc[IN], error)
+type FinalProvider[IN any] func() (EndFunc[IN], error)
 
 func AddStartProvider[IMPL NodesMap, OUT any](p *Pipe[IMPL], field StartFieldPtr[IMPL, OUT], provider StartProvider[OUT]) {
 	p.startProviders = append(p.startProviders, reflectProvider{
@@ -26,7 +26,7 @@ func AddStartProvider[IMPL NodesMap, OUT any](p *Pipe[IMPL], field StartFieldPtr
 	})
 }
 
-func AddMidProvider[IMPL NodesMap, IN, OUT any](p *Pipe[IMPL], field MidFieldPtr[IMPL, IN, OUT], provider MiddleProvider[IN, OUT]) {
+func AddMiddleProvider[IMPL NodesMap, IN, OUT any](p *Pipe[IMPL], field MiddleFieldPtr[IMPL, IN, OUT], provider MiddleProvider[IN, OUT]) {
 	p.midProviders = append(p.midProviders, reflectProvider{
 		asNode:      reflect.ValueOf(asMiddle[IN, OUT]),
 		fieldGetter: reflect.ValueOf(field),
@@ -34,9 +34,9 @@ func AddMidProvider[IMPL NodesMap, IN, OUT any](p *Pipe[IMPL], field MidFieldPtr
 	})
 }
 
-func AddEndProvider[IMPL NodesMap, IN any](p *Pipe[IMPL], field EndFieldPtr[IMPL, IN], provider EndProvider[IN]) {
+func AddFinalProvider[IMPL NodesMap, IN any](p *Pipe[IMPL], field FinalFieldPtr[IMPL, IN], provider FinalProvider[IN]) {
 	p.endProviders = append(p.endProviders, reflectProvider{
-		asNode:      reflect.ValueOf(asTerminal[IN]),
+		asNode:      reflect.ValueOf(asFinal[IN]),
 		fieldGetter: reflect.ValueOf(field),
 		fn:          reflect.ValueOf(provider),
 	})
@@ -49,12 +49,12 @@ func AddStart[IMPL NodesMap, OUT any](p *Pipe[IMPL], field StartFieldPtr[IMPL, O
 	*(field(p.nodesMap)) = startNode
 }
 
-func AddMiddle[IMPL NodesMap, IN, OUT any](p *Pipe[IMPL], field MidFieldPtr[IMPL, IN, OUT], fn MidFunc[IN, OUT], opts ...Option) {
+func AddMiddle[IMPL NodesMap, IN, OUT any](p *Pipe[IMPL], field MiddleFieldPtr[IMPL, IN, OUT], fn MidFunc[IN, OUT], opts ...Option) {
 	*(field(p.nodesMap)) = asMiddle(fn, p.joinOpts(opts...)...)
 }
 
-func AddTerminal[IMPL NodesMap, IN any](p *Pipe[IMPL], field EndFieldPtr[IMPL, IN], fn EndFunc[IN], opts ...Option) {
-	termNode := asTerminal(fn, p.joinOpts(opts...)...)
+func AddFinal[IMPL NodesMap, IN any](p *Pipe[IMPL], field FinalFieldPtr[IMPL, IN], fn EndFunc[IN], opts ...Option) {
+	termNode := asFinal(fn, p.joinOpts(opts...)...)
 	p.terminalNodes = append(p.terminalNodes, termNode)
 	*(field(p.nodesMap)) = termNode
 }

@@ -6,8 +6,8 @@ import (
 
 type sampleNm struct {
 	start  pipe.Start[int]
-	middle pipe.Mid[int, int]
-	end    pipe.End[int]
+	middle pipe.Middle[int, int]
+	end    pipe.Final[int]
 }
 
 func (s *sampleNm) Connect() {
@@ -19,7 +19,7 @@ func startNode(s *sampleNm) *pipe.Start[int] {
 	return &s.start
 }
 
-func middleNode(s *sampleNm) *pipe.Mid[int, int] {
+func middleNode(s *sampleNm) *pipe.Middle[int, int] {
 	return &s.middle
 }
 
@@ -33,7 +33,7 @@ func example() {
 		}, nil
 	})
 
-	pipe.AddMidProvider(p, middleNode, func() (pipe.MidFunc[int, int], error) {
+	pipe.AddMiddleProvider(p, middleNode, func() (pipe.MidFunc[int, int], error) {
 		return pipe.BypassMid[int](), nil
 	})
 

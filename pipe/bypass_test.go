@@ -19,13 +19,13 @@ func TestBypass_Single(t *testing.T) {
 	})
 	bypass := pipe.AddMiddleOpt[int](p, nil)
 	var recv []int
-	term := pipe.AddTerminal(p, func(in <-chan int) {
+	term := pipe.AddFinal(p, func(in <-chan int) {
 		for i := range in {
 			recv = append(recv, i)
 		}
 	})
 	var recvMul []int
-	termMul := pipe.AddTerminal(p, func(in <-chan int) {
+	termMul := pipe.AddFinal(p, func(in <-chan int) {
 		for i := range in {
 			recvMul = append(recvMul, 10*i)
 		}
@@ -52,13 +52,13 @@ func TestBypass_Multi(t *testing.T) {
 	bypass2 := pipe.AddMiddleOpt[int](p, nil)
 	bypass3 := pipe.AddMiddleOpt[int](p, nil)
 	var recv []int
-	term := pipe.AddTerminal(p, func(in <-chan int) {
+	term := pipe.AddFinal(p, func(in <-chan int) {
 		for i := range in {
 			recv = append(recv, i)
 		}
 	})
 	var recvMul []int
-	termMul := pipe.AddTerminal(p, func(in <-chan int) {
+	termMul := pipe.AddFinal(p, func(in <-chan int) {
 		for i := range in {
 			recvMul = append(recvMul, 10*i)
 		}
@@ -91,13 +91,13 @@ func TestBypass_Mixed(t *testing.T) {
 		}
 	})
 	var recv []int
-	term := pipe.AddTerminal(p, func(in <-chan int) {
+	term := pipe.AddFinal(p, func(in <-chan int) {
 		for i := range in {
 			recv = append(recv, i)
 		}
 	})
 	var recvAdd []int
-	termAdd := pipe.AddTerminal(p, func(in <-chan int) {
+	termAdd := pipe.AddFinal(p, func(in <-chan int) {
 		for i := range in {
 			recvAdd = append(recvAdd, 1+i)
 		}
