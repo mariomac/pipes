@@ -3,19 +3,19 @@ package pipe
 import "github.com/mariomac/pipes/pipe/internal/connect"
 
 // IgnoreStart is a convenience function to explicitly specify that the returned StartFunc
-// is going to be ignored/bypassed by the pipes library
+// is going to be ignored/bypassed by the pipes library.
 func IgnoreStart[OUT any]() StartFunc[OUT] {
 	return nil
 }
 
 // Bypass is a convenience function to explicitly specify that the returned MiddleFunc
-// is going to be ignored/bypassed by the pipes library
+// is going to be ignored/bypassed by the pipes library.
 func Bypass[INOUT any]() MiddleFunc[INOUT, INOUT] {
 	return nil
 }
 
 // IgnoreFinal is a convenience function to explicitly specify that the returned FinalFunc
-// // is going to be ignored/bypassed by the pipes library
+// // is going to be ignored/bypassed by the pipes library.
 func IgnoreFinal[IN any]() FinalFunc[IN] {
 	return nil
 }

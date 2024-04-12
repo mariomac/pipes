@@ -4,7 +4,24 @@ import (
 	"reflect"
 )
 
+// NodesMap is any data structure that stores references to the nodes of a pipeline,
+// and specifies how to connect them by means of its Connect method.
+// Example:
+//	type MyPipeline struct {
+//		Load      pipe.Start[string]
+//		Transform pipe.Middle[string, string]
+//		Store     pipe.Final[string]
+//	}
+//	func (m *MyPipeline) Connect() {
+//		m.Load.SendTo(m.Transform)
+//		m.Transform.SendTo(m.Store)
+//	}
+// The fields are assigned to nodes by the Builder, by means of
+// AddStart, AddStartProvider, AddMiddle, AddMiddleProvider, AddFinal and AddFinalProvider
+
 type NodesMap interface {
+	// Connect runs the code that connects the nodes of a pipeline. It is invoked
+	// by the Builder before returning the pipeline Runner.
 	Connect()
 }
 

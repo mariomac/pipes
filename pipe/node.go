@@ -10,7 +10,7 @@ import (
 )
 
 // StartFunc is a function that receives a writable channel as unique argument, and sends
-// value to that channel during an indefinite amount of time.
+// values to that channel during an indefinite amount of time.
 type StartFunc[OUT any] func(out chan<- OUT)
 
 // MiddleFunc is a function that receives a readable channel as first argument,
@@ -22,9 +22,9 @@ type MiddleFunc[IN, OUT any] func(in <-chan IN, out chan<- OUT)
 // It must process the inputs from the input channel until it's closed.
 type FinalFunc[IN any] func(in <-chan IN)
 
-// Sender is any node that can send data to another node: Start or Middle
+// Sender is any node that can send data to another node: Start or Middle.
 type Sender[OUT any] interface {
-	// SendTo connects a sender with a group of receivers
+	// SendTo connects a Sender with a group of Receiver instances.
 	SendTo(r ...Receiver[OUT]) // TODO: fail if there is any middle or final node not being destination of any "SendTo"
 }
 
@@ -111,7 +111,7 @@ func (t *terminal[IN]) isStarted() bool {
 	return t.started
 }
 
-// Done returns a channel that is closed when the terminal node has ended its processing. This
+// Done returns a channel that is closed when all the terminal nodes have ended. This
 // is, when all its inputs have been also closed. Waiting for all the terminal nodes to finish
 // allows blocking the execution until all the data in the pipeline has been processed and all the
 // previous stages have ended
