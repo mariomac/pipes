@@ -10,6 +10,7 @@ import (
 // Demuxed node whose output is not a channel but a Demux.
 // Can be both StartDemux or MiddleDemux nodes
 // Experimental API. Some names could change in the following versions.
+// Deprecated package. Use github.com/mariomac/pipes/pipe package
 type Demuxed interface {
 	demuxBuilder() *demuxBuilder
 }
@@ -31,6 +32,7 @@ type Demux struct {
 // and sends, during an indefinite amount of time, values to the channels
 // contained in the Demux (previously accessed by the DemuxGet function).
 // Experimental API. Some names could change in the following versions.
+// Deprecated package. Use github.com/mariomac/pipes/pipe package
 type StartDemuxFunc func(out Demux)
 
 // MiddleDemuxFunc is a function that receives a readable channel as first argument,

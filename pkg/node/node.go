@@ -1,6 +1,7 @@
 // Package node provides functionalities to create nodes and interconnect them.
 // A Node is a function container that can be connected via channels to other nodes.
 // A node can send data to multiple nodes, and receive data from multiple nodes.
+// Deprecated package. Use github.com/mariomac/pipes/pipe package
 //
 //nolint:unused
 package node
@@ -14,20 +15,24 @@ import (
 
 // StartFunc is a function that receives a writable channel as unique argument, and sends
 // value to that channel during an indefinite amount of time.
+// Deprecated package. Use github.com/mariomac/pipes/pipe package
 type StartFunc[OUT any] func(out chan<- OUT)
 
 // MiddleFunc is a function that receives a readable channel as first argument,
 // and a writable channel as second argument.
 // It must process the inputs from the input channel until it's closed.
+// Deprecated package. Use github.com/mariomac/pipes/pipe package
 type MiddleFunc[IN, OUT any] func(in <-chan IN, out chan<- OUT)
 
 // TerminalFunc is a function that receives a readable channel as unique argument.
 // It must process the inputs from the input channel until it's closed.
+// Deprecated package. Use github.com/mariomac/pipes/pipe package
 type TerminalFunc[IN any] func(in <-chan IN)
 
 // TODO: OutType and InType methods are candidates for deprecation
 
 // Sender is any node that can send data to another node: node.Start, node.Middle and node.Bypass
+// Deprecated package. Use github.com/mariomac/pipes/pipe package
 type Sender[OUT any] interface {
 	// SendTo connect a sender with a group of receivers
 	SendTo(...Receiver[OUT])
@@ -36,6 +41,7 @@ type Sender[OUT any] interface {
 }
 
 // Receiver is any node that can receive data from another node: node.Bypass, node.Middle and node.Terminal
+// Deprecated package. Use github.com/mariomac/pipes/pipe package
 type Receiver[IN any] interface {
 	isStarted() bool
 	start()
@@ -48,6 +54,7 @@ type Receiver[IN any] interface {
 }
 
 // SenderReceiver is any node that can both send and receive data: node.Bypass or node.Middle.
+// Deprecated package. Use github.com/mariomac/pipes/pipe package
 type SenderReceiver[IN, OUT any] interface {
 	Receiver[IN]
 	Sender[OUT]
@@ -58,6 +65,7 @@ type SenderReceiver[IN, OUT any] interface {
 // external source like a Web Service.
 // A graph must have at least one Start or StartDemux node.
 // An Start node must have at least one output node.
+// Deprecated package. Use github.com/mariomac/pipes/pipe package
 type Start[OUT any] struct {
 	receiverGroup[OUT]
 	funs []StartFunc[OUT]
@@ -66,6 +74,7 @@ type Start[OUT any] struct {
 // Middle is any intermediate node that receives data from another node, processes/filters it,
 // and forwards the data to another node.
 // An Middle node must have at least one output node.
+// Deprecated package. Use github.com/mariomac/pipes/pipe package
 type Middle[IN, OUT any] struct {
 	outs    []Receiver[OUT]
 	inputs  connect.Joiner[IN]
@@ -97,6 +106,7 @@ func (m *Middle[IN, OUT]) InType() reflect.Type {
 
 // Terminal is any node that receives data from another node and does not forward it to another node,
 // but can process it and send the results to outside the graph (e.g. memory, storage, web...)
+// Deprecated package. Use github.com/mariomac/pipes/pipe package
 type Terminal[IN any] struct {
 	inputs  connect.Joiner[IN]
 	started bool
@@ -123,6 +133,7 @@ func (t *Terminal[IN]) isStarted() bool {
 // is, when all its inputs have been also closed. Waiting for all the Terminal nodes to finish
 // allows blocking the execution until all the data in the graph has been processed and all the
 // previous stages have ended
+// Deprecated package. Use github.com/mariomac/pipes/pipe package
 func (t *Terminal[IN]) Done() <-chan struct{} {
 	if t == nil {
 		closed := make(chan struct{})
@@ -174,6 +185,7 @@ func AsTerminal[IN any](fun TerminalFunc[IN], opts ...Option) *Terminal[IN] {
 
 // Start starts the function wrapped in the Start node. This method should be invoked
 // for all the start nodes of the same graph, so the graph can properly start and finish.
+// Deprecated package. Use github.com/mariomac/pipes/pipe package
 func (i *Start[OUT]) Start() {
 	// a nil start node can be started without no effect on the graph.
 	// this allows setting optional nillable start nodes and let start all of them
@@ -234,6 +246,7 @@ func getOptions(opts ...Option) creationOptions {
 
 // receiverGroup connects a sender node with a collection
 // of Receiver nodes through a common connect.Forker instance.
+// Deprecated package. Use github.com/mariomac/pipes/pipe package
 type receiverGroup[OUT any] struct {
 	Outs    []Receiver[OUT]
 	outType reflect.Type

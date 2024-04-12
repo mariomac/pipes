@@ -114,6 +114,7 @@ type Builder struct {
 // NewBuilder instantiates a Graph Builder with the default configuration, which can be overridden via the
 // arguments.
 // Deprecated. Please use the low-level API of this library as this will be removed in future versions.
+// Deprecated package. Use github.com/mariomac/pipes/pipe package
 func NewBuilder(options ...node.Option) *Builder {
 	optVals := make([]reflect.Value, 0, len(options))
 	for _, opt := range options {
@@ -142,6 +143,7 @@ func NewBuilder(options ...node.Option) *Builder {
 // output type is connected to a node with a different input type. When nodes with different
 // types are connected, a codec converting between both MUST have been registered previously.
 // Otherwise the graph Build method will fail.
+// Deprecated package. Use github.com/mariomac/pipes/pipe package
 func RegisterCodec[I, O any](nb *Builder, middleFunc node.MiddleFunc[I, O]) {
 	var in I
 	var out O
@@ -158,6 +160,7 @@ func RegisterCodec[I, O any](nb *Builder, middleFunc node.MiddleFunc[I, O]) {
 // The passed configuration type must either implement the stage.Instancer interface or the
 // configuration struct containing it must define a `nodeId` tag with an identifier for that stage.
 // Deprecated. Please use the low-level API of this library as this will be removed in future versions.
+// Deprecated package. Use github.com/mariomac/pipes/pipe package
 func RegisterStart[CFG, O any](nb *Builder, b stage.StartProvider[CFG, O]) {
 	nb.startProviders[typeOf[CFG]()] = reflectedNode{
 		instancer: reflect.ValueOf(node.AsStart[O]),
@@ -168,6 +171,7 @@ func RegisterStart[CFG, O any](nb *Builder, b stage.StartProvider[CFG, O]) {
 // RegisterMultiStart is similar to RegisterStart, but registers a stage.StartMultiProvider,
 // which allows associating multiple functions with a single node
 // Deprecated. Please use the low-level API of this library as this will be removed in future versions.
+// Deprecated package. Use github.com/mariomac/pipes/pipe package
 func RegisterMultiStart[CFG, O any](nb *Builder, b stage.StartMultiProvider[CFG, O]) {
 	nb.startProviders[typeOf[CFG]()] = reflectedNode{
 		instancer: reflect.ValueOf(node.AsStart[O]),
@@ -181,6 +185,7 @@ func RegisterMultiStart[CFG, O any](nb *Builder, b stage.StartMultiProvider[CFG,
 // The passed configuration type must either implement the stage.Instancer interface or the
 // configuration struct containing it must define a `nodeId` tag with an identifier for that stage.
 // Deprecated. Please use the low-level API of this library as this will be removed in future versions.
+// Deprecated package. Use github.com/mariomac/pipes/pipe package
 func RegisterMiddle[CFG, I, O any](nb *Builder, b stage.MiddleProvider[CFG, I, O]) {
 	nb.middleProviders[typeOf[CFG]()] = reflectedNode{
 		instancer: reflect.ValueOf(node.AsMiddle[I, O]),
