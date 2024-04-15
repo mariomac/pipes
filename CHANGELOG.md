@@ -2,7 +2,11 @@
 
 # v0.10.0
 * Deprecated the node and graph API and created a simpler, type-safer, unified pipe package.
-  * Next version of the pipes library will completely remove node and graph package.
+  * Deprecated packages: `github.com/mariomac/pipes/pkg/node`, `github.com/mariomac/pipes/pkg/graph`.
+  * New package `github.com/mariomac/pipes/pipe`
+  * Next version of the pipes library will completely remove node and graph package, so use this version
+    as a transitive version for porting from deprecated packages to new packages.
+* Old documentation has been completely removed. New documentation will be released soon.
 
 # v0.9.0
 
