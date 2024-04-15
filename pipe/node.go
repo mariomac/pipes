@@ -180,7 +180,7 @@ func (sn *start[OUT]) Start() {
 
 func (m *middle[IN, OUT]) start() {
 	if len(m.outs) == 0 {
-		panic("doubler node should have outputs")
+		panic("middle node should have outputs")
 	}
 	m.started = true
 	joiners := make([]*connect.Joiner[OUT], 0, len(m.outs))

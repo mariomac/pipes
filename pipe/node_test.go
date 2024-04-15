@@ -250,6 +250,136 @@ func TestNilNodes(t *testing.T) {
 	})
 }
 
+type miniPipe struct {
+	start pipe.Start[int]
+	mid   pipe.Middle[int, int]
+	end   pipe.Final[int]
+}
+
+func (m *miniPipe) Connect() {
+	m.start.SendTo(m.mid)
+	m.mid.SendTo(m.end)
+}
+func (m *miniPipe) startPtr() *pipe.Start[int]     { return &m.start }
+func (m *miniPipe) midPtr() *pipe.Middle[int, int] { return &m.mid }
+func (m *miniPipe) endPtr() *pipe.Final[int]       { return &m.end }
+
+func TestOverride_Direct_Direct(t *testing.T) {
+	gb := pipe.NewBuilder(&miniPipe{})
+	pipe.AddStart(gb, (*miniPipe).startPtr, Counter(1, 2))
+	pipe.AddMiddle(gb, (*miniPipe).midPtr, EvenFilter)
+	pipe.AddFinal(gb, (*miniPipe).endPtr, func(ints <-chan int) {
+		for range ints {
+		}
+	})
+	pipe.AddStart(gb, (*miniPipe).startPtr, Counter(1, 8))
+	pipe.AddMiddle(gb, (*miniPipe).midPtr, OddFilter)
+	var collect []int
+	pipe.AddFinal(gb, (*miniPipe).endPtr, func(ints <-chan int) {
+		for i := range ints {
+			collect = append(collect, i)
+		}
+	})
+	run, err := gb.Build()
+	require.NoError(t, err)
+	run.Start()
+	helpers.ReadChannel(t, run.Done(), timeout)
+	assert.Equal(t, []int{1, 3, 5, 7}, collect)
+}
+
+func TestOverride_Direct_Provider(t *testing.T) {
+	gb := pipe.NewBuilder(&miniPipe{})
+	pipe.AddStart(gb, (*miniPipe).startPtr, Counter(1, 2))
+	pipe.AddMiddle(gb, (*miniPipe).midPtr, EvenFilter)
+	pipe.AddFinal(gb, (*miniPipe).endPtr, func(ints <-chan int) {
+		for range ints {
+		}
+	})
+	pipe.AddStartProvider(gb, (*miniPipe).startPtr, func() (pipe.StartFunc[int], error) {
+		return Counter(1, 8), nil
+	})
+	pipe.AddMiddleProvider(gb, (*miniPipe).midPtr, func() (pipe.MiddleFunc[int, int], error) {
+		return OddFilter, nil
+	})
+	var collect []int
+	pipe.AddFinalProvider(gb, (*miniPipe).endPtr, func() (pipe.FinalFunc[int], error) {
+		return func(ints <-chan int) {
+			for i := range ints {
+				collect = append(collect, i)
+			}
+		}, nil
+	})
+	run, err := gb.Build()
+	require.NoError(t, err)
+	run.Start()
+	helpers.ReadChannel(t, run.Done(), timeout)
+	assert.Equal(t, []int{1, 3, 5, 7}, collect)
+}
+
+func TestOverride_Provider_Direct(t *testing.T) {
+	gb := pipe.NewBuilder(&miniPipe{})
+	pipe.AddStartProvider(gb, (*miniPipe).startPtr, func() (pipe.StartFunc[int], error) {
+		return Counter(1, 3), nil
+	})
+	pipe.AddMiddleProvider(gb, (*miniPipe).midPtr, func() (pipe.MiddleFunc[int, int], error) {
+		return EvenFilter, nil
+	})
+	pipe.AddFinalProvider(gb, (*miniPipe).endPtr, func() (pipe.FinalFunc[int], error) {
+		return func(ints <-chan int) {
+			for range ints {
+			}
+		}, nil
+	})
+	pipe.AddStart(gb, (*miniPipe).startPtr, Counter(1, 8))
+	pipe.AddMiddle(gb, (*miniPipe).midPtr, OddFilter)
+	var collect []int
+	pipe.AddFinal(gb, (*miniPipe).endPtr, func(ints <-chan int) {
+		for i := range ints {
+			collect = append(collect, i)
+		}
+	})
+	run, err := gb.Build()
+	require.NoError(t, err)
+	run.Start()
+	helpers.ReadChannel(t, run.Done(), timeout)
+	assert.Equal(t, []int{1, 3, 5, 7}, collect)
+}
+
+func TestOverride_Provider_Provider(t *testing.T) {
+	gb := pipe.NewBuilder(&miniPipe{})
+	pipe.AddStartProvider(gb, (*miniPipe).startPtr, func() (pipe.StartFunc[int], error) {
+		return Counter(1, 3), nil
+	})
+	pipe.AddMiddleProvider(gb, (*miniPipe).midPtr, func() (pipe.MiddleFunc[int, int], error) {
+		return EvenFilter, nil
+	})
+	pipe.AddFinalProvider(gb, (*miniPipe).endPtr, func() (pipe.FinalFunc[int], error) {
+		return func(ints <-chan int) {
+			for range ints {
+			}
+		}, nil
+	})
+	pipe.AddStartProvider(gb, (*miniPipe).startPtr, func() (pipe.StartFunc[int], error) {
+		return Counter(1, 8), nil
+	})
+	pipe.AddMiddleProvider(gb, (*miniPipe).midPtr, func() (pipe.MiddleFunc[int, int], error) {
+		return OddFilter, nil
+	})
+	var collect []int
+	pipe.AddFinalProvider(gb, (*miniPipe).endPtr, func() (pipe.FinalFunc[int], error) {
+		return func(ints <-chan int) {
+			for i := range ints {
+				collect = append(collect, i)
+			}
+		}, nil
+	})
+	run, err := gb.Build()
+	require.NoError(t, err)
+	run.Start()
+	helpers.ReadChannel(t, run.Done(), timeout)
+	assert.Equal(t, []int{1, 3, 5, 7}, collect)
+}
+
 func Counter(from, to int) pipe.StartFunc[int] {
 	return func(out chan<- int) {
 		for i := from; i <= to; i++ {

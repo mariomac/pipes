@@ -3,6 +3,7 @@ package pipe_test
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -196,4 +197,63 @@ func TestExample_CantBypass(t *testing.T) {
 	_, err := p.Build()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Expecting pipe.MiddleFunc[int,string]")
+}
+
+type nillableNodeMap struct {
+	start    pipe.Start[int]
+	nilStart pipe.Start[int]
+
+	middle pipe.Middle[int, string]
+
+	final    pipe.Final[string]
+	nilFinal pipe.Final[string]
+}
+
+func (n *nillableNodeMap) Connect() {
+	n.start.SendTo(n.middle)
+	n.nilStart.SendTo(n.middle)
+	n.middle.SendTo(n.final, n.nilFinal)
+}
+
+func (n *nillableNodeMap) startPtr() *pipe.Start[int]           { return &n.start }
+func (n *nillableNodeMap) nilStartPtr() *pipe.Start[int]        { return &n.nilStart }
+func (n *nillableNodeMap) middlePtr() *pipe.Middle[int, string] { return &n.middle }
+func (n *nillableNodeMap) finalPtr() *pipe.Final[string]        { return &n.final }
+func (n *nillableNodeMap) nilFinalPtr() *pipe.Final[string]     { return &n.nilFinal }
+
+func TestNilEndpoints(t *testing.T) {
+	nb := pipe.NewBuilder(&nillableNodeMap{})
+	pipe.AddStartProvider(nb, (*nillableNodeMap).startPtr, func() (pipe.StartFunc[int], error) {
+		return func(out chan<- int) {
+			out <- 1
+			out <- 2
+			out <- 3
+		}, nil
+	})
+	pipe.AddStartProvider(nb, (*nillableNodeMap).nilStartPtr, func() (pipe.StartFunc[int], error) {
+		return pipe.IgnoreStart[int](), nil
+	})
+	pipe.AddMiddle(nb, (*nillableNodeMap).middlePtr, func(in <-chan int, out chan<- string) {
+		for i := range in {
+			out <- strconv.Itoa(i)
+		}
+	})
+	var collect []string
+	pipe.AddFinalProvider(nb, (*nillableNodeMap).finalPtr, func() (pipe.FinalFunc[string], error) {
+		return func(in <-chan string) {
+			for i := range in {
+				collect = append(collect, i)
+			}
+		}, nil
+	})
+	pipe.AddFinalProvider(nb, (*nillableNodeMap).nilFinalPtr, func() (pipe.FinalFunc[string], error) {
+		return pipe.IgnoreFinal[string](), nil
+	})
+
+	graph, err := nb.Build()
+	require.NoError(t, err)
+	graph.Start()
+	testers.ReadChannel(t, graph.Done(), timeout)
+
+	assert.Equal(t, []string{"1", "2", "3"}, collect)
 }

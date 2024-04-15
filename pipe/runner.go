@@ -6,8 +6,12 @@ package pipe
 // according to the Connect function of the NodesMap that is provided to
 // the Builder.
 type Runner struct {
-	startNodes []startable
-	finalNodes []doneable
+	// startNodes and finalNodes are stored by the uintptr of the destination field
+	// in the NodesMap implementation.
+	// this way we make sure that we can assign a node to a field twice and only
+	// tha last change will prevail, without leaving lost startnodes around there
+	startNodes map[uintptr]startable
+	finalNodes map[uintptr]doneable
 }
 
 // Start the pipeline processing in a background.

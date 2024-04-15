@@ -104,12 +104,14 @@ type FinalProvider[IN any] func() (FinalFunc[IN], error)
 // The function returned by the StartProvider will be assigned to the NodesMap
 // field whose pointer is returned by the passed StartPtr function.
 func AddStartProvider[IMPL NodesMap, OUT any](p *Builder[IMPL], field StartPtr[IMPL, OUT], provider StartProvider[OUT]) {
-	p.startProviders = append(p.startProviders, reflectProvider{
-		acceptNilFunc: true,
-		asNode:        reflect.ValueOf(asStart[OUT]),
-		fieldGetter:   reflect.ValueOf(field),
-		fn:            reflect.ValueOf(provider),
-	})
+	dstAddress := reflect.ValueOf(field(p.nodesMap)).Pointer()
+	p.startNodes[dstAddress] = nodeOrProvider[startable]{
+		provider: &reflectProvider{
+			acceptNilFunc: true,
+			asNode:        reflect.ValueOf(asStart[OUT]),
+			fieldGetter:   reflect.ValueOf(field),
+			fn:            reflect.ValueOf(provider),
+		}}
 }
 
 // AddMiddleProvider registers a MiddleProvider into the pipeline Builder.
@@ -125,24 +127,28 @@ func AddMiddleProvider[IMPL NodesMap, IN, OUT any](p *Builder[IMPL], field Middl
 		rv := reflect.ValueOf(&bypass[IN]{})
 		bypassableNode = &rv
 	}
-	p.midProviders = append(p.midProviders, reflectProvider{
-		middleBypasser: bypassableNode,
-		asNode:         reflect.ValueOf(asMiddle[IN, OUT]),
-		fieldGetter:    reflect.ValueOf(field),
-		fn:             reflect.ValueOf(provider),
-	})
+	dstAddress := reflect.ValueOf(field(p.nodesMap)).Pointer()
+	p.middleNodes[dstAddress] = nodeOrProvider[struct{}]{
+		provider: &reflectProvider{
+			middleBypasser: bypassableNode,
+			asNode:         reflect.ValueOf(asMiddle[IN, OUT]),
+			fieldGetter:    reflect.ValueOf(field),
+			fn:             reflect.ValueOf(provider),
+		}}
 }
 
 // AddFinalProvider registers a FinalProvider into the pipeline Builder.
 // The function returned by the FinalProvider will be assigned to the NodesMap
 // field whose pointer is returned by the passed FinalPtr function.
 func AddFinalProvider[IMPL NodesMap, IN any](p *Builder[IMPL], field FinalPtr[IMPL, IN], provider FinalProvider[IN]) {
-	p.finalProviders = append(p.finalProviders, reflectProvider{
-		acceptNilFunc: true,
-		asNode:        reflect.ValueOf(asFinal[IN]),
-		fieldGetter:   reflect.ValueOf(field),
-		fn:            reflect.ValueOf(provider),
-	})
+	dstAddress := reflect.ValueOf(field(p.nodesMap)).Pointer()
+	p.finalNodes[dstAddress] = nodeOrProvider[doneable]{
+		provider: &reflectProvider{
+			acceptNilFunc: true,
+			asNode:        reflect.ValueOf(asFinal[IN]),
+			fieldGetter:   reflect.ValueOf(field),
+			fn:            reflect.ValueOf(provider),
+		}}
 }
 
 // AddStart creates a Start node given the provided StartFunc. The node will
@@ -150,8 +156,9 @@ func AddFinalProvider[IMPL NodesMap, IN any](p *Builder[IMPL], field FinalPtr[IM
 // provided StartPtr function.
 func AddStart[IMPL NodesMap, OUT any](p *Builder[IMPL], field StartPtr[IMPL, OUT], fn StartFunc[OUT]) {
 	startNode := asStart(fn)
-	p.startNodes = append(p.startNodes, startNode)
-	*(field(p.nodesMap)) = startNode
+	dstAddress := field(p.nodesMap)
+	p.startNodes[reflect.ValueOf(dstAddress).Pointer()] = nodeOrProvider[startable]{node: startNode}
+	*(dstAddress) = startNode
 }
 
 // AddMiddle creates a Middle node given the provided MiddleFunc. The node will
@@ -160,7 +167,9 @@ func AddStart[IMPL NodesMap, OUT any](p *Builder[IMPL], field StartPtr[IMPL, OUT
 // The options related to the connection to that Middle node can be overridden. Otherwise
 // the global options passed to the pipeline Builder are used.
 func AddMiddle[IMPL NodesMap, IN, OUT any](p *Builder[IMPL], field MiddlePtr[IMPL, IN, OUT], fn MiddleFunc[IN, OUT], opts ...Option) {
-	*(field(p.nodesMap)) = asMiddle(fn, p.joinOpts(opts...)...)
+	dstAddress := field(p.nodesMap)
+	p.middleNodes[reflect.ValueOf(dstAddress).Pointer()] = nodeOrProvider[struct{}]{}
+	*(dstAddress) = asMiddle(fn, p.joinOpts(opts...)...)
 }
 
 // AddFinal creates a Final node given the provided FinalFunc. The node will
@@ -170,6 +179,7 @@ func AddMiddle[IMPL NodesMap, IN, OUT any](p *Builder[IMPL], field MiddlePtr[IMP
 // the global options passed to the pipeline Builder are used.
 func AddFinal[IMPL NodesMap, IN any](p *Builder[IMPL], field FinalPtr[IMPL, IN], fn FinalFunc[IN], opts ...Option) {
 	termNode := asFinal(fn, p.joinOpts(opts...)...)
-	p.finalNodes = append(p.finalNodes, termNode)
-	*(field(p.nodesMap)) = termNode
+	dstAddress := field(p.nodesMap)
+	p.finalNodes[reflect.ValueOf(dstAddress).Pointer()] = nodeOrProvider[doneable]{node: termNode}
+	*(dstAddress) = termNode
 }
