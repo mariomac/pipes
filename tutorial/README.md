@@ -353,21 +353,50 @@ functions:
 
 ## Building and running the pipeline
 
-
+Once that the builder has all the information of the graph, its `Build` method
+will return a `pipe.Runner` instance. If any of the providers returned an error
+(for example, if the user provided a wrong regular expression), the `Build`
+method will return that error.
 
 ```go
 runner, err := builder.Build()
 if err != nil {
     log.Fatal("minigrep:", err.Error())
 }
+```
 
-// start the pipeline runner in background
+The `Start` method of the runner instance will start the pipeline 
+**in a background goroutine**.
+
+```go
 runner.Start()
+```
 
-// wait until the pipeline has processed all the input
+That means that, since the `main` function of our example doesn't do
+anything else, we need to invoke the `Done` method of the runner, that
+returns a channel that is closed when the pipeline processes all the input.
+
+```go
 <-runner.Done()
 ```
 
-despues del ejemplo, explicar un poco el funcionamiento interno
-explicar cómo sale todo
-añadir un nodo opcional
+### The pipes library Behind the scenes
+
+The pipes library basically instantiates each provided node in a separate goroutine
+and instantiates and shares the channels. It also makes sure that each channel is
+closed when a node function exits, so the channels of the consecutive nodes can end.
+
+In the simple example of this tutorial, it would just seem that you are changing
+some channel instantiation boilerplate by some pipes library boilerplate, and you
+would be partially right.
+
+But for more advanced scenarios, the pipes library brings some powerful options
+that we will describe in future tutorials:
+
+* Manages the shared access to channels when a node sends information to multiple
+  destination nodes; or when receives information from multiple source nodes. Making
+  sure that channels aren't closed until all the sources have ended.
+* Allows that a node sends data to multiple nodes, and all the nodes receive the same
+  data; as opposite to Go channels, which would split the data across the destination nodes.
+* Facilitates the dynamic composition of pipelines and graphs, as Node providers might
+  also be disabled to bypass the data.
