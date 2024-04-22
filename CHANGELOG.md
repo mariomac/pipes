@@ -1,5 +1,10 @@
 # CHANGELOG
 
+# v0.11.0
+
+* Removed the deprecated `github.com/mariomac/pipes/pkg/node`, `github.com/mariomac/pipes/pkg/graph` packages.
+  * If you were using `v0.9.0`, use `v0.10.0` as a transitioning version.
+
 # v0.10.0
 * Deprecated the node and graph API and created a simpler, type-safer, unified pipe package.
   * Deprecated packages: `github.com/mariomac/pipes/pkg/node`, `github.com/mariomac/pipes/pkg/graph`.
