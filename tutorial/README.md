@@ -9,8 +9,8 @@ tool: `minigrep`.
 Its behavior is simple: you invoke it from the command line passing a regular expression
 as a first argument, and a set of files as subsequent arguments.
 
-Minigrep will search in all the files and, for each file line matching the provided
-pattern, it will print the matching line as well as the file containing it.
+Minigrep will read all the lines in the files and, for each line matching the
+provided pattern, it will print the matching line as well as the file containing it.
 
 If no files are provider, Minigrep will process the text lines from the
 standard input.
@@ -41,10 +41,10 @@ The [Pipes library](https://github.com/mariomac/pipes) allows to define
 and connect processing nodes that run independently and might receive and/or send
 information from/to other nodes in the pipeline.
 
-Based on these building blocks, we could decompose the Minigrep application
+Based on that building blocks, we could decompose the Minigrep application
 in the following Nodes:
 
-* A node that, given a list of file names, opens them for read and forwards
+* A node that, given a list of file names, opens them for reading and forwards
   their file descriptors to the next stage of the processing pipeline. We will
   name this node as **File Finder**.
 * A node that receives the file descriptors and, for each file descriptor,
@@ -67,7 +67,7 @@ Each processing node is defined by a function that has an input channel to
 receive the information, or an output channel to forward the information,
 or both. The input and output channels don't have to be of the same type.
 
-Depending of the position of the node of each node in the pipeline or graph
+Depending on the position of the node of each node in the pipeline or graph
 of nodes, there are three types of nodes:
 
 **Start** nodes read or generate the data to be submitted to the pipeline.
@@ -87,11 +87,11 @@ type FinalFunc[IN any] func(in <-chan IN)
 ```
 
 In the example diagram, the **Printer** is a final node, as it receives text lines
-from the pipeline and prints them to the standard output (but don't forward them
-to any other further node. 
+from the pipeline and prints them to the standard output (but doesn't forward them
+to any other further node). 
 
 **Middle nodes** are placed between start, final, and other middle nodes. They
-have both input and output channels and they usually transform, filter or convert the
+have both input and output channels, and they usually transform, filter or convert the
 input data before forwarding it to the next node. Their internal function is
 defined generically as:
 
@@ -110,7 +110,7 @@ The File finder node requires a slice of file names as input argument, but the
 above `StartFunc` definition only accepts an output channel as argument.
 
 To overcome this, we will create a function that accepts the list of files, and
-returns a `StartFunc` implementation that will be invoked later by the pipes library.
+returns a `StartFunc` implementation that will be invoked later by the pipes' library.
 
 ```go
 // FileFinder opens the files passed as argument and forwards them to the next
@@ -190,7 +190,7 @@ as it does not require more arguments than the input channel where it receives
 ```go
 func Printer(in <-chan FileLine) {
 	for l := range in {
-        // if there is no file name, we are reading from standard input
+        // if there is no file name, we are reading from standard input,
         // so we don't print it
 		if l.FileName != "" {
 			fmt.Printf("%s:", l.FileName)
@@ -317,7 +317,7 @@ builder := pipe.NewBuilder(&MiniGrepNodes{})
 Now, we use the `AddStart`, `AddMiddle` and `AddFinal` func to add the instances of
 `StartFunc`, `MiddleFunc` and `FinalFunc` that we previously defined.
 
-These functions requires two arguments:
+These functions require two arguments:
 1. A function that receives a `*MiniGrepNodes` instance (because it's the type 
    that we used in the `NewBuilder` invocation) and returns a pointer to the field
    that is going to be populated by the second argument.
@@ -387,11 +387,9 @@ and instantiates and shares the channels. It also makes sure that each channel i
 closed when a node function exits, so the channels of the consecutive nodes can end.
 
 In the simple example of this tutorial, it would just seem that you are changing
-some channel instantiation boilerplate by some pipes library boilerplate, and you
-would be partially right.
-
-But for more advanced scenarios, the pipes library brings some powerful options
-that we will describe in future tutorials:
+some channel instantiation and connection boilerplate by some pipes library
+boilerplate, and you would be partially right. But for more advanced scenarios,
+the pipes library brings some powerful options that we will describe in future tutorials:
 
 * Manages the shared access to channels when a node sends information to multiple
   destination nodes; or when receives information from multiple source nodes. Making
