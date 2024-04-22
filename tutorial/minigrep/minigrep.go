@@ -78,6 +78,9 @@ func FileScanner(in <-chan *os.File, out chan<- FileLine) {
 		if err := scanner.Err(); err != nil {
 			fmt.Fprintf(os.Stderr, "error reading %s: %s\n", f.Name(), err.Error())
 		}
+		if f != os.Stdin {
+			f.Close()
+		}
 	}
 }
 
@@ -122,13 +125,13 @@ func main() {
 	// any error.
 	// AddMiddleProvider specifies a node that can return an error and interrupt
 	// the pipeline creation, if the user provides a wrong regular expression pattern.
-	gb := pipe.NewBuilder(&MiniGrepNodes{})
-	pipe.AddStart(gb, finderPtr, FileFinder(os.Args[2:]))
-	pipe.AddMiddle(gb, scannerPtr, FileScanner)
-	pipe.AddMiddleProvider(gb, matcherPtr, MatchFilterProvider(os.Args[1]))
-	pipe.AddFinal(gb, printerPtr, Printer)
+	builder := pipe.NewBuilder(&MiniGrepNodes{})
+	pipe.AddStart(builder, finderPtr, FileFinder(os.Args[2:]))
+	pipe.AddMiddle(builder, scannerPtr, FileScanner)
+	pipe.AddFinal(builder, printerPtr, Printer)
+	pipe.AddMiddleProvider(builder, matcherPtr, MatchFilterProvider(os.Args[1]))
 
-	runner, err := gb.Build()
+	runner, err := builder.Build()
 	if err != nil {
 		log.Fatal("minigrep:", err.Error())
 	}
